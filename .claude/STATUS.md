@@ -13,8 +13,8 @@ Updated: 2026-10-09
 
 ## Open questions / blocked on the user
 - Do the 100xdevs course terms allow downloading lecture streams? Blocks the capture milestone (3).
-- Gemini API key (free tier) for `.env`.
-- Install ffmpeg locally (not installed) before milestone 2.
+- (Done) Gemini key is in `.env`; ffmpeg installed.
+- A 3-5 min Hinglish sample lecture file (path) for testing milestone 2.
 
 ## Learned this project (not yet in CLAUDE.md)
 - Mods are only auto-loaded from `.claude/skills/<name>` (project) or `~/.claude/skills/<name>`.

@@ -34,7 +34,7 @@ Nothing built yet. Still to build:
 - Lint: `uv run ruff check . && uv run ruff format --check .`
 
 ## Gotchas
-- ffmpeg and Docker are not installed on the dev machine; unit tests must not need them.
+- ffmpeg is installed via winget (open a new shell, or add the WinGet Packages Gyan.FFmpeg bin dir to PATH). Docker only exists inside WSL (`wsl -e docker ...`). Keep unit tests independent of both.
 - Capture is blocked until the owner confirms the course terms allow downloading.
 
 ## Workflow
