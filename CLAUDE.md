@@ -40,7 +40,7 @@ Nothing built yet. Still to build:
 ## Workflow
 - Explore and plan before non-trivial edits; use `/start-feature` and `/fix-bug`, and `/wrap-up` to end a session.
 - Run tests/lint and report real results before calling work done.
-- **Ship every checkpoint:** after each completed feature (tests/lint green), commit and push to `origin` (TODO: remote). If it deploys, confirm the deploy succeeded and give the live URL.
+- **Ship every checkpoint:** after each completed feature (tests/lint green), commit and push to `origin` (`https://github.com/govindplal/notetaker`, private, branch `main`). If it deploys, confirm the deploy succeeded and give the live URL.
 
 ## Current status
 @.claude/STATUS.md
