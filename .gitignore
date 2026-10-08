@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.venv/
+__pycache__/
+dist/
+build/
+.next/
+.claude/settings.local.json
+CLAUDE.local.md
+data/
+*.db
+*.db-*
