@@ -68,6 +68,14 @@ def nearest_frame(frames: list[FrameRef], ts: float) -> FrameRef | None:
     return before[-1] if before else (frames[0] if frames else None)
 
 
+_LIST_LABEL = re.compile(r'(\|"?|\["|\("|\{")(\s*)(\d+)\.\s')
+
+
+def clean_mermaid(src: str) -> str:
+    """Mermaid reads a label starting with "1. " or "1) " as a Markdown list; use "1 - " instead."""
+    return _LIST_LABEL.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)} - ", src)
+
+
 def _render_block(b: Block, glossary: list[GlossaryItem], seen: set[str]) -> dict:
     d = {"type": b.type, "caption": b.caption}
     if b.type in ("text", "example", "callout"):
@@ -80,7 +88,7 @@ def _render_block(b: Block, glossary: list[GlossaryItem], seen: set[str]) -> dic
     elif b.type == "formula":
         d["latex"] = b.latex or ""
     elif b.type == "diagram":
-        d["mermaid"] = b.mermaid or ""
+        d["mermaid"] = clean_mermaid(b.mermaid or "")
     elif b.type == "problem":
         d["problem"] = link_terms(block_md(b.text or ""), glossary, seen)
         d["solution"] = link_terms(block_md(b.solution or ""), glossary, seen)

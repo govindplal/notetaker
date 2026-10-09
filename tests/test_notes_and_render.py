@@ -98,3 +98,13 @@ def test_nearest_frame_picks_latest_not_after_timestamp():
     assert render.nearest_frame(frames, 70).href == "b"
     assert render.nearest_frame(frames, -5).href == "a"
     assert render.nearest_frame([], 10) is None
+
+
+def test_clean_mermaid_rewrites_list_like_labels():
+    src = 'graph TD\n User -->|1. Query| App\n App -->|"2. Retrieve"| DB\n A["3. Step"] --> B'
+    out = render.clean_mermaid(src)
+    assert "|1 - Query|" in out
+    assert '|"2 - Retrieve"|' in out
+    assert 'A["3 - Step"]' in out
+    plain = "graph LR\n A --> B"
+    assert render.clean_mermaid(plain) == plain

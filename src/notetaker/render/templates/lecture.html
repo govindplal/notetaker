@@ -158,8 +158,10 @@
   import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs";
   const dark = matchMedia("(prefers-color-scheme: dark)").matches;
   mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "neutral" });
-  const nodes = document.querySelectorAll("pre.mermaid");
-  mermaid.run({ nodes }).catch(() => nodes.forEach((n) => n.classList.add("failed")));
+  // Render each diagram on its own so one bad diagram does not hide the others.
+  for (const node of document.querySelectorAll("pre.mermaid")) {
+    try { await mermaid.run({ nodes: [node] }); } catch (e) { node.classList.add("failed"); }
+  }
 </script>
 <script>
   document.querySelectorAll(".formula").forEach((el) => {
