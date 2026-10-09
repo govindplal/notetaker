@@ -37,6 +37,47 @@ def extract_audio(video: Path, out: Path) -> Path:
     return out
 
 
+def atempo_chain(speed: float) -> str:
+    """ffmpeg filter that slows audio by `speed`x. Each atempo stage only goes down to 0.5."""
+    if speed < 1:
+        raise ValueError("speed must be >= 1")
+    factor = 1 / speed
+    stages = []
+    while factor < 0.5:
+        stages.append("atempo=0.5")
+        factor /= 0.5
+    stages.append(f"atempo={factor:.6f}")
+    return ",".join(stages)
+
+
+def normalize_speed(recording: Path, speed: float, out: Path) -> Path:
+    """Turn a recording made at `speed`x back into a 1x file, so timestamps match the lecture."""
+    _run(
+        [
+            "-i",
+            str(recording),
+            "-filter_complex",
+            f"[0:v]setpts=PTS*{speed}[v];[0:a]{atempo_chain(speed)}[a]",
+            "-map",
+            "[v]",
+            "-map",
+            "[a]",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "28",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "64k",
+            str(out),
+        ]
+    )
+    return out
+
+
 def sample_frames(video: Path, out_dir: Path, every_s: float = 2.0) -> list[tuple[float, Path]]:
     """Grab one frame every `every_s` seconds at 960px wide. Returns (timestamp, path)."""
     out_dir.mkdir(parents=True, exist_ok=True)
