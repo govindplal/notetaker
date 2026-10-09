@@ -5,6 +5,7 @@ Updated: 2026-10-09
 ## Now
 - Milestone 1 (skeleton) done: uv project, SQLite schema, resumable job queue, 11 tests green, committed and pushed to private repo github.com/govindplal/notetaker (main).
 - Milestone 2 offline pipeline works end to end on the 4m33s sample (24 segments, 11 frames kept, notes written). Output checked by reading it; only the first half of the milestone (English-heavy clip) is covered.
+- Notes redesign built (needs live check): structured JSON notes in the owner's handwriting style, drops non-knowledge, per-course ledger to avoid repeating earlier lectures, HTML output (`render/html.py`, template `render/templates/lecture.html`), all frames and transcripts stored. 31 tests pass. See the Update section of `docs/PLAN.md`.
 - Plan approved: `docs/PLAN.md` (stack, pipeline, milestones). Stack decided: Python + FastAPI/HTMX + SQLite, Chrome container over CDP, Gemini Flash for transcription and notes, free Oracle ARM VM.
 - Site probe done on 100xdevs.com AI/ML course (course 23, 33 videos): plain HLS from `transcoded-video.b-cdn.net`, no DRM. Direct HLS fetch with a plain request (no cookies/referer) returns 403 from the CDN, so the site restricts it; we did not work around that. Capture is on hold pending the owner's decision.
 - `model-router` mod is installed user-level at `~/.claude/skills/model-router` (edit that copy; tune rules in `hooks/classify.ts`; `/route [tier]` pins a tier).

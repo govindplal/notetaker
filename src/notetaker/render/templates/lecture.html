@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ notes.title }} · {{ course_title }}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<style>
+  :root {
+    --bg: #faf9f5; --ink: #1f1e1d; --muted: #6b6a66; --line: #e6e3da; --card: #ffffff;
+    --accent: #d97757; --blue: #6a8caf; --green: #788c5d; --gold: #c2a83e;
+    --code: #f1efe7; --new: #788c5d; --extends: #6a8caf; --recap: #9a978f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1a18; --ink: #ecebe6; --muted: #a09d94; --line: #34322e; --card: #232220;
+      --code: #2a2825;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1a18; --ink: #ecebe6; --muted: #a09d94; --line: #34322e; --card: #232220; --code: #2a2825;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 17px/1.65 Georgia, "Iowan Old Style", "Times New Roman", serif; }
+  .page { max-width: 1120px; margin: 0 auto; padding: 32px 16px 96px;
+          display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 48px; }
+  @media (max-width: 860px) { .page { grid-template-columns: 1fr; gap: 24px; } aside { order: -1; position: static !important; } }
+  main { min-width: 0; }
+  .eyebrow, .chip, .nav, aside, summary, th, .badge, .meta {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif; }
+  .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  h1 { font-size: 34px; line-height: 1.2; margin: 6px 0 8px; font-weight: 600; }
+  .meta { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .tldr { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+          border-radius: 8px; padding: 14px 20px; margin: 20px 0 28px; }
+  .tldr b { font-family: -apple-system, system-ui, sans-serif; font-size: 12px; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--muted); }
+  .tldr ul { margin: 8px 0 0; padding-left: 20px; }
+  details.sec { border-top: 1px solid var(--line); padding: 4px 0; }
+  details.sec > summary { cursor: pointer; list-style: none; padding: 14px 0 6px; display: flex;
+        flex-wrap: wrap; align-items: baseline; gap: 10px; }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary h2 { font-size: 22px; margin: 0; font-weight: 600; flex: 1 1 auto; }
+  .badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #fff;
+           padding: 2px 8px; border-radius: 99px; }
+  .badge.new { background: var(--new); } .badge.extends { background: var(--extends); }
+  .badge.recap { background: var(--recap); }
+  .chip { font-size: 12px; color: var(--muted); border: 1px solid var(--line); background: var(--card);
+          padding: 1px 8px; border-radius: 6px; cursor: pointer; text-decoration: none; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .builds { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+  p { margin: 10px 0; } ul, ol { margin: 8px 0; padding-left: 22px; } li { margin: 4px 0; }
+  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .88em; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 15px; display: block; overflow-x: auto; }
+  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--code); font-size: 13px; }
+  .formula { overflow-x: auto; margin: 14px 0; text-align: center; }
+  .diagram { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
+             margin: 14px 0; overflow-x: auto; text-align: center; }
+  figcaption, .cap { font-family: -apple-system, system-ui, sans-serif; color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .example { background: var(--card); border: 1px dashed var(--line); border-radius: 8px; padding: 2px 16px; margin: 14px 0; }
+  .example::before { content: "Example"; font: 600 11px -apple-system, system-ui, sans-serif; letter-spacing: .08em;
+                     text-transform: uppercase; color: var(--blue); }
+  .callout { border-left: 4px solid var(--gold); background: var(--card); padding: 2px 16px; margin: 14px 0; border-radius: 0 8px 8px 0; }
+  .problem { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  @media (max-width: 600px) { .problem { grid-template-columns: 1fr; } }
+  .problem > div { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 2px 16px; }
+  .problem h4 { font: 600 11px -apple-system, system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase;
+                margin: 10px 0 0; color: var(--accent); }
+  .problem .sol h4 { color: var(--green); }
+  .term { border-bottom: 1px dotted var(--accent); cursor: help; }
+  .term.on, dt.on { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  aside { position: sticky; top: 24px; align-self: start; font-size: 14px; max-height: calc(100vh - 48px); overflow: auto; }
+  aside .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  aside dt { font-weight: 600; margin-top: 12px; padding: 1px 4px; border-radius: 4px; }
+  aside dd { margin: 2px 0 0 4px; color: var(--muted); }
+  .nav { display: flex; justify-content: space-between; gap: 12px; margin: 28px 0 0; font-size: 14px; }
+  .nav a { color: var(--accent); text-decoration: none; }
+  details.more { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 15px; }
+  details.more summary { cursor: pointer; font-size: 14px; color: var(--muted); padding: 6px 0; }
+  .frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+  .frames a { display: block; font: 12px -apple-system, system-ui, sans-serif; color: var(--muted); text-decoration: none; }
+  .frames img { width: 100%; border-radius: 6px; border: 1px solid var(--line); display: block; }
+  .tr { font-size: 14px; } .tr p { margin: 4px 0; } .tr b { font-family: -apple-system, system-ui, sans-serif; color: var(--muted); font-weight: 500; margin-right: 6px; }
+  dialog { border: 0; padding: 0; background: transparent; max-width: 96vw; }
+  dialog::backdrop { background: rgba(0,0,0,.7); } dialog img { max-width: 96vw; max-height: 92vh; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+<main>
+  <div class="nav"><a href="{{ index_href }}">← {{ course_title }}</a><span>Lecture {{ lecture_idx }}</span></div>
+  <div class="eyebrow">{{ course_title }} · Lecture {{ lecture_idx }}</div>
+  <h1>{{ notes.title }}</h1>
+  {% if lecture_date %}<div class="meta">{{ lecture_date }}</div>{% endif %}
+
+  <div class="tldr"><b>In short</b>
+    <ul>{% for t in tldr %}<li>{{ t|safe }}</li>{% endfor %}</ul>
+  </div>
+
+  {% for s in sections %}
+  <details class="sec" open>
+    <summary>
+      <h2>{{ s.heading }}</h2>
+      <span class="badge {{ s.status }}">{{ {"new": "New", "extends": "Adds to earlier"}[s.status] }}</span>
+      {% if s.frame %}<a class="chip" href="{{ s.frame }}" data-frame="{{ s.frame }}" title="Slide at this point">{{ s.ts }} · slide</a>
+      {% else %}<span class="chip">{{ s.ts }}</span>{% endif %}
+    </summary>
+    {% if s.related %}<p class="builds">Builds on: {{ s.related|join(", ") }}</p>{% endif %}
+    {% for b in s.blocks %}
+      {% if b.type == "text" %}{{ b.html|safe }}
+      {% elif b.type == "bullets" %}<ul>{% for i in b["items"] %}<li>{{ i|safe }}</li>{% endfor %}</ul>
+      {% elif b.type == "table" %}
+        <table><thead><tr>{% for h in b.headers %}<th>{{ h|safe }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for row in b.rows %}<tr>{% for c in row %}<td>{{ c|safe }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+        {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
+      {% elif b.type == "formula" %}<div class="formula" data-latex="{{ b.latex }}"></div>
+      {% elif b.type == "diagram" %}<figure class="diagram" style="margin:14px 0"><pre class="mermaid">{{ b.mermaid }}</pre>
+        {% if b.caption %}<figcaption>{{ b.caption }}</figcaption>{% endif %}</figure>
+      {% elif b.type == "example" %}<div class="example">{{ b.html|safe }}</div>
+      {% elif b.type == "callout" %}<div class="callout">{{ b.html|safe }}</div>
+      {% elif b.type == "problem" %}<div class="problem"><div><h4>Problem</h4>{{ b.problem|safe }}</div>
+        <div class="sol"><h4>Solution</h4>{{ b.solution|safe }}</div></div>
+      {% endif %}
+    {% endfor %}
+  </details>
+  {% endfor %}
+
+  {% if left_out %}
+  <details class="more"><summary>Left out of these notes ({{ left_out|length }})</summary>
+    <ul>{% for x in left_out %}<li>{{ x|safe }}</li>{% endfor %}</ul></details>
+  {% endif %}
+  {% if frames %}
+  <details class="more"><summary>All frames ({{ frames|length }})</summary>
+    <div class="frames">{% for f in frames %}<a href="{{ f.href }}" data-frame="{{ f.href }}"><img loading="lazy" src="{{ f.href }}" alt="frame at {{ f.ts }}">{{ f.ts }}</a>{% endfor %}</div></details>
+  {% endif %}
+  {% if transcript %}
+  <details class="more"><summary>Full transcript ({{ transcript|length }} segments)</summary>
+    <div class="tr">{% for t in transcript %}<p><b>{{ t.ts }}</b>{{ t.text }}</p>{% endfor %}</div></details>
+  {% endif %}
+
+  <div class="nav"><span>{% if prev_href %}<a href="{{ prev_href }}">← Previous lecture</a>{% endif %}</span>
+    <span>{% if next_href %}<a href="{{ next_href }}">Next lecture →</a>{% endif %}</span></div>
+</main>
+
+{% if glossary %}
+<aside>
+  <div class="label">Glossary</div>
+  <dl id="gloss">{% for g in glossary %}<dt data-g="{{ g.slug }}">{{ g.term }}</dt><dd>{{ g.definition|safe }}</dd>{% endfor %}</dl>
+</aside>
+{% endif %}
+</div>
+<dialog id="lightbox"><img alt=""></dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs";
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "neutral" });
+  const nodes = document.querySelectorAll("pre.mermaid");
+  mermaid.run({ nodes }).catch(() => nodes.forEach((n) => n.classList.add("failed")));
+</script>
+<script>
+  document.querySelectorAll(".formula").forEach((el) => {
+    try { katex.render(el.dataset.latex, el, { displayMode: true, throwOnError: false }); }
+    catch (e) { el.textContent = el.dataset.latex; }
+  });
+  const box = document.getElementById("lightbox");
+  document.querySelectorAll("[data-frame]").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    box.querySelector("img").src = a.dataset.frame; box.showModal();
+  }));
+  box.addEventListener("click", () => box.close());
+  document.querySelectorAll(".term").forEach((t) => {
+    const dt = document.querySelector('dt[data-g="' + t.dataset.term + '"]');
+    if (!dt) return;
+    t.addEventListener("mouseenter", () => { t.classList.add("on"); dt.classList.add("on"); dt.scrollIntoView({ block: "nearest" }); });
+    t.addEventListener("mouseleave", () => { t.classList.remove("on"); dt.classList.remove("on"); });
+  });
+</script>
+</body>
+</html>

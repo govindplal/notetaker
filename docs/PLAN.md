@@ -102,3 +102,12 @@ New dependencies (approval needed): playwright, yt-dlp, fastapi, uvicorn, jinja2
 - Oracle free capacity can be unavailable, and idle VMs can be reclaimed; the hourly worker activity keeps the VM from looking idle. The fallback is the same compose file on a cheap VPS.
 - Free-tier limits change. Limits are configurable and the worker backs off rather than failing.
 - The course site's terms may forbid downloading. Use is personal; downloads are deleted after notes are written.
+
+
+## Update: notes design (2026-10-09, from the owner's handwritten notes and the HTML reference)
+- **Style:** notes follow the owner's handwriting (`src/notetaker/notes/style.md`): short plain sentences, `Term - explanation`, arrows for naming, Problem/Solution, "Reasons to fail", concrete examples, bracketed asides, minimal maths.
+- **Only useful knowledge:** greetings, logistics, off-topic Q&A and in-lecture repeats are dropped. Each dropped chunk gets a one-line reason in a "Left out" list so nothing disappears silently.
+- **No repeats across lectures:** a per-course **ledger** (`L<lecture>-c<n> | title | one-line summary`) is sent with each new lecture. Topics already taught are not rewritten; if a lecture adds something new to an old topic, only the new part is written, tagged "Adds to earlier" with a "Builds on: Lecture N" pointer. Lectures must be processed in order.
+- **Store everything:** the full transcript and every distinct frame (near-duplicates dropped) are kept permanently; only the video is deleted. Notes use at most 60 spread frames as input, but all frames are stored and viewable.
+- **Output:** one structured JSON per lecture (`LectureNotes`) rendered to a self-contained HTML page (Jinja2): TL;DR box, collapsible sections with timestamp chips that open the nearest slide, hover glossary, tables, KaTeX formulas, Mermaid diagrams, "Left out", all frames, full transcript. Modelled on the "concept explainer" in thariqs.github.io/html-effectiveness.
+- **Models:** Gemini calls fall back through 3.8, 3.7, 3.6, 3.5 Flash on 503/429, because 3.8 is often overloaded.

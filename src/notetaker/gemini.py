@@ -2,7 +2,6 @@
 
 import json
 import time
-from functools import partial
 from pathlib import Path
 
 from google import genai
@@ -10,6 +9,8 @@ from google.genai import errors as genai_errors
 from google.genai import types
 
 MODEL = "gemini-3.8-flash"
+# Tried in order when the preferred model is overloaded (503) or rate limited (429).
+FALLBACK_MODELS = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash")
 
 
 def client(api_key: str | None = None) -> genai.Client:
@@ -17,6 +18,21 @@ def client(api_key: str | None = None) -> genai.Client:
 
 
 RETRYABLE_CODES = {429, 500, 503, 504}
+
+
+def generate(c: genai.Client, contents, config=None, models=FALLBACK_MODELS, base_s: float = 4.0):
+    """generate_content that moves to the next model when one is overloaded, then backs off."""
+    last = None
+    for rnd in range(3):
+        for model in models:
+            try:
+                return c.models.generate_content(model=model, contents=contents, config=config)
+            except genai_errors.APIError as e:
+                if e.code not in RETRYABLE_CODES:
+                    raise
+                last = e
+        time.sleep(base_s * 2**rnd)
+    raise last
 
 
 def with_retries(call, attempts: int = 6, base_s: float = 5.0):
@@ -74,78 +90,10 @@ def parse_segments(raw: str) -> list[dict]:
 
 def transcribe(c: genai.Client, audio: Path, model: str = MODEL) -> list[dict]:
     f = upload_and_wait(c, audio, "audio/mpeg")
-    resp = with_retries(
-        partial(
-            c.models.generate_content,
-            model=model,
-            contents=[f, TRANSCRIBE_PROMPT],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.0,
-            ),
-        )
+    resp = generate(
+        c,
+        [f, TRANSCRIBE_PROMPT],
+        types.GenerateContentConfig(response_mime_type="application/json", temperature=0.0),
+        models=(model, *[m for m in FALLBACK_MODELS if m != model]),
     )
     return parse_segments(resp.text)
-
-
-NOTES_PROMPT = """You are writing study notes for a lecture. The transcript is in English
-and Hindi (romanised); keep Hindi terms as spoken and explain them in English where useful.
-
-Write detailed Markdown notes for the transcript section below:
-- Use `##` headings for topics and `###` for subtopics. Keep the heading names stable.
-- Explain each concept clearly, with examples where the lecture gives them.
-- Put formulas in LaTeX ($...$ inline, $$...$$ for blocks).
-- Put comparisons and lists in Markdown tables or bullet lists.
-- For a process, architecture, or flow that is shown on a slide or board, redraw it as a
-  Mermaid diagram in a ```mermaid block. Use the attached frames for slide and board content.
-- Slide and board text should appear as text in the notes, not as image references.
-- Add a `[mm:ss]` timestamp at the start of each subtopic so the reader can find it in the video.
-- Do not invent content the lecture did not cover. If something is unclear, say so.
-
-Transcript section ({start}-{end}):
-{transcript}
-"""
-
-
-def _mmss(seconds: float) -> str:
-    s = int(seconds)
-    return f"{s // 60:02d}:{s % 60:02d}"
-
-
-def write_notes(
-    c: genai.Client,
-    segments: list[dict],
-    frames: list[tuple[float, Path]],
-    window_s: float = 900.0,
-    model: str = MODEL,
-) -> str:
-    """Write notes window by window (default 15 min). Frames go to the window they fall in."""
-    if not segments:
-        return ""
-    end_t = segments[-1]["end"]
-    parts = []
-    t0 = 0.0
-    while t0 < end_t:
-        t1 = t0 + window_s
-        window = [s for s in segments if t0 <= s["start"] < t1]
-        if window:
-            text = "\n".join(f"[{_mmss(s['start'])}] {s['text']}" for s in window)
-            win_frames = [
-                types.Part.from_bytes(data=p.read_bytes(), mime_type="image/jpeg")
-                for ts, p in frames
-                if t0 <= ts < t1
-            ]
-            prompt = NOTES_PROMPT.format(
-                start=_mmss(t0), end=_mmss(min(t1, end_t)), transcript=text
-            )
-            resp = with_retries(
-                partial(
-                    c.models.generate_content,
-                    model=model,
-                    contents=[*win_frames, prompt],
-                    config=types.GenerateContentConfig(temperature=0.2),
-                )
-            )
-            parts.append(resp.text.strip())
-        t0 = t1
-    return "\n\n".join(parts)
