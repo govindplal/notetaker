@@ -6,12 +6,12 @@ Updated: 2026-10-09
 - Milestone 1 (skeleton) done: uv project, SQLite schema, resumable job queue, 11 tests green, committed and pushed to private repo github.com/govindplal/notetaker (main).
 - Milestone 2 offline pipeline works end to end on the 4m33s sample (24 segments, 11 frames kept, notes written). Output checked by reading it; only the first half of the milestone (English-heavy clip) is covered.
 - Plan approved: `docs/PLAN.md` (stack, pipeline, milestones). Stack decided: Python + FastAPI/HTMX + SQLite, Chrome container over CDP, Gemini Flash for transcription and notes, free Oracle ARM VM.
-- Site probe done on 100xdevs.com AI/ML course (course 23, 33 videos): plain HLS from `transcoded-video.b-cdn.net`, no DRM. Capture still blocked on the terms question.
+- Site probe done on 100xdevs.com AI/ML course (course 23, 33 videos): plain HLS from `transcoded-video.b-cdn.net`, no DRM. Direct HLS fetch with a plain request (no cookies/referer) returns 403 from the CDN, so the site restricts it; we did not work around that. Capture is on hold pending the owner's decision.
 - `model-router` mod is installed user-level at `~/.claude/skills/model-router` (edit that copy; tune rules in `hooks/classify.ts`; `/route [tier]` pins a tier).
 
 ## Next
 - Milestone 2 follow-ups: test on a clip with real Hindi speech; add `.env` loading to the CLI; diagram crops (bbox) not built yet.
-- Milestone 3 (capture) stays blocked until the terms question is answered.
+- Milestone 3 (capture): direct download is blocked (403). Do not spoof referer/cookies. Options for the owner: real-time recording of normal playback, or manual video/slide upload into the pipeline.
 
 ## Open questions / blocked on the user
 - Do the 100xdevs course terms allow downloading lecture streams? Blocks the capture milestone (3).
