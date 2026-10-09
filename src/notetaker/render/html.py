@@ -8,6 +8,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown_it import MarkdownIt
 
 from notetaker.notes.model import Block, GlossaryItem, LectureNotes
+from notetaker.render.figures import draw_figure
 
 _md = MarkdownIt("commonmark", {"html": False}).enable("table")
 _env = Environment(
@@ -95,6 +96,20 @@ def group_code(blocks: list[dict]) -> list[dict]:
     return out
 
 
+def _blocks(blocks: list[Block], glossary: list[GlossaryItem], seen: set[str], figs: list[int]):
+    """Render blocks in order. Figures are drawn here; ones too small or broken to draw are dropped."""
+    out = []
+    for b in blocks:
+        if b.type == "figure":
+            figs[0] += 1
+            svg = draw_figure(b.figure, f"f{figs[0]}")
+            if svg is not None:
+                out.append({"type": "svg", "svg": svg, "caption": b.caption})
+            continue
+        out.append(_render_block(b, glossary, seen))
+    return out
+
+
 def _slug(text: str, n: int) -> str:
     return f"s{n}-" + (re.sub(r"\W+", "-", text.lower()).strip("-") or "section")
 
@@ -119,6 +134,7 @@ def render_lecture(
     lecture_titles: dict[int, str] | None = None,
 ) -> str:
     seen: set[str] = set()
+    figs = [0]
     lead = link_terms(inline(notes.lead), notes.glossary, seen)
     sections = []
     for s in notes.sections:
@@ -129,7 +145,7 @@ def render_lecture(
                 "status": s.status,
                 "what_is_new": s.what_is_new,
                 "related": [_pointer(r, lecture_titles or {}) for r in s.related_ids],
-                "blocks": group_code([_render_block(b, notes.glossary, seen) for b in s.blocks]),
+                "blocks": group_code(_blocks(s.blocks, notes.glossary, seen, figs)),
             }
         )
     glossary = [

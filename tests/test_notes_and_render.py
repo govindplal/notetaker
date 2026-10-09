@@ -120,3 +120,50 @@ def test_consecutive_code_blocks_become_tabs():
     assert [b["type"] for b in out] == ["text", "codegroup", "text", "codegroup"]
     assert [t["label"] for t in out[1]["tabs"]] == ["train.py", "python"]
     assert out[3]["tabs"] == [{"label": "code", "code": "c = 3"}]
+
+
+def test_figure_block_without_a_figure_is_rejected():
+    import pytest
+
+    with pytest.raises(ValueError):
+        Block(type="figure", caption="no data")
+
+
+def test_caption_length_is_capped():
+    import pytest
+
+    with pytest.raises(ValueError):
+        Block(type="text", text="x", caption="word " * 100)
+
+
+def test_degenerate_repetition_is_detected_but_normal_text_is_not():
+    loop = "nicely cleanly safely properly " * 40
+    bad = LectureNotes(
+        title="T",
+        lead="L",
+        sections=[
+            Section(
+                heading="H",
+                status="new",
+                concept="c",
+                summary="s",
+                blocks=[Block(type="text", text=loop)],
+            )
+        ],
+    )
+    assert writer.degenerate_text(bad) is not None
+    ok = LectureNotes(
+        title="T",
+        lead="L",
+        sections=[
+            Section(
+                heading="H",
+                status="new",
+                concept="c",
+                summary="s",
+                blocks=[Block(type="text", text=" ".join(f"word{i}" for i in range(100)))],
+            )
+        ],
+    )
+    assert writer.degenerate_text(ok) is None
+    assert writer.degenerate_text(_notes()) is None

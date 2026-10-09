@@ -51,6 +51,10 @@
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; max-width: 680px; }
   @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
   .pair .card { margin: 0; } .pair .good .label { color: var(--olive); } .pair .bad .label { color: rgb(176, 74, 63); }
+  .canvas { border: 1.5px solid var(--gray-300); border-radius: 12px; background: var(--ivory); overflow: hidden; margin: 14px 0 6px; max-width: 720px; }
+  .canvas svg { display: block; width: 100%; height: auto; }
+  .canvas svg .m { font-family: var(--mono); font-size: 11px; } .canvas svg .s { font-family: var(--sans); font-size: 12px; }
+  .canvas svg .t { font-family: var(--serif); font-size: 15px; } .canvas svg .b { font-weight: 600; }
   .formula { margin: 12px 0; max-width: 680px; overflow-x: auto; }
 
   details { border: 1.5px solid var(--gray-300); border-radius: 10px; background: #fff; margin: 14px 0; overflow: hidden; max-width: 680px; }
@@ -114,6 +118,8 @@
         {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
       {% elif b.type == "formula" %}<div class="formula" data-latex="{{ b.latex }}"></div>
       {% elif b.type == "diagram" %}<div class="card wide"><pre class="mermaid">{{ b.mermaid }}</pre></div>
+        {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
+      {% elif b.type == "svg" %}<figure class="canvas">{{ b.svg|safe }}</figure>
         {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
       {% elif b.type == "codegroup" %}<div class="tabs" data-tabs>
         {% if b.tabs|length > 1 %}<div class="tabbar">{% for t in b.tabs %}<button class="{{ 'on' if loop.first }}" data-t="{{ loop.index0 }}">{{ t.label }}</button>{% endfor %}</div>{% endif %}

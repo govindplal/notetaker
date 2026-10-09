@@ -5,13 +5,13 @@ Updated: 2026-10-09
 ## Now
 - Milestone 1 (skeleton) done: uv project, SQLite schema, resumable job queue, 11 tests green, committed and pushed to private repo github.com/govindplal/notetaker (main).
 - Milestone 2 offline pipeline works end to end on the 4m33s sample (24 segments, 11 frames kept, notes written). Output checked by reading it; only the first half of the milestone (English-heavy clip) is covered.
-- Notes redesign built (needs live check): structured JSON notes in the owner's handwriting style, drops non-knowledge, per-course ledger to avoid repeating earlier lectures, HTML output (`render/html.py`, template `render/templates/lecture.html`), all frames and transcripts stored. 31 tests pass. See the Update section of `docs/PLAN.md`.
+- Notes pipeline: structured JSON notes in the owner's style, ledger-based dedupe across lectures, HTML page copying the reference repo's feature-explainer layout (one fixed palette), figures drawn from data (flow/layers), nothing stored but notes + ledger + HTML. 46 tests pass. Checked live on the 4m33s RAG sample as lectures 2 and 3. See `docs/PLAN.md`.
 - Plan approved: `docs/PLAN.md` (stack, pipeline, milestones). Stack decided: Python + FastAPI/HTMX + SQLite, Chrome container over CDP, Gemini Flash for transcription and notes, free Oracle ARM VM.
 - Site probe done on 100xdevs.com AI/ML course (course 23, 33 videos): plain HLS from `transcoded-video.b-cdn.net`, no DRM. Direct HLS fetch with a plain request (no cookies/referer) returns 403 from the CDN, so the site restricts it; we did not work around that. Capture is on hold pending the owner's decision.
 - `model-router` mod is installed user-level at `~/.claude/skills/model-router` (edit that copy; tune rules in `hooks/classify.ts`; `/route [tier]` pins a tier).
 
 ## Next
-- Milestone 2 follow-ups: test on a clip with real Hindi speech; add `.env` loading to the CLI; diagram crops (bbox) not built yet.
+- Course index page (links lectures, prev/next), then wire the recorder (milestone 3) into the pipeline and test Hindi speech. `.env` is not loaded by the CLI yet (export it manually).
 - Milestone 3 feasibility (2x in-browser recording) verified on lecture 1: 20 wall-s gave 37.8 media-s and 3.6 MB of audio+video via MediaRecorder on captureStream(). Player allows one playing device per account; the worker must pause on 'Video already playing'.
 - Milestone 3 (capture): direct download is blocked (403). Do not spoof referer/cookies. Options for the owner: real-time recording of normal playback, or manual video/slide upload into the pipeline.
 
