@@ -1,0 +1,44 @@
+<!-- Layout and styling follow the research explainers in github.com/ThariqS/html-effectiveness
+     (Copyright 2026 Anthropic PBC, Apache-2.0). One fixed palette: no dark mode. -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ course_title }} · notes</title>
+{% include "_style.html" %}
+<style>
+  .page.single { grid-template-columns: minmax(0, 1fr); max-width: 760px; }
+  .row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 14px; padding: 14px 4px; border-bottom: 1px solid var(--gray-300); text-decoration: none; color: inherit; }
+  .row:first-of-type { border-top: 1px solid var(--gray-300); }
+  a.row:hover .t { color: var(--clay); }
+  .row .n { font-family: var(--mono); font-size: 12px; color: var(--gray-500); padding-top: 3px; }
+  .row .t { font-family: var(--serif); font-size: 18px; color: var(--slate); }
+  .row .d { grid-column: 2; font-size: 14px; max-width: 640px; }
+  .row .s { grid-column: 2; font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--gray-500); }
+  .row.wait .t { color: var(--gray-500); }
+  .row .s b { color: var(--clay); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="page single">
+  <main>
+    <header>
+      <div class="eyebrow">Course notes</div>
+      <h1>{{ course_title }}</h1>
+      <div class="tldr"><b>Progress</b> — {{ done }} of {{ total }} lectures have notes.{% if next_title %} Next up: {{ next_title }}.{% endif %}</div>
+    </header>
+    <h2>Lectures</h2>
+    {% for r in rows %}
+      {% if r.href %}
+      <a class="row" href="{{ r.href }}"><span class="n">{{ "%02d"|format(r.idx) }}</span><span class="t">{{ r.title }}</span>
+        {% if r.blurb %}<span class="d">{{ r.blurb }}</span>{% endif %}
+        {% if r.extends %}<span class="s"><b>adds to earlier</b> · {{ r.extends }} section{{ "s" if r.extends != 1 }}</span>{% endif %}</a>
+      {% else %}
+      <div class="row wait"><span class="n">{{ "%02d"|format(r.idx) }}</span><span class="t">{{ r.title }}</span><span class="s">{{ r.status }}</span></div>
+      {% endif %}
+    {% endfor %}
+  </main>
+</div>
+</body>
+</html>

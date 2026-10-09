@@ -37,6 +37,28 @@ def extract_audio(video: Path, out: Path) -> Path:
     return out
 
 
+def split_audio(audio: Path, out_dir: Path, seconds: int = 600) -> list[tuple[float, Path]]:
+    """Cut audio into ~10 minute chunks (a long lecture is too big for one transcription call).
+
+    Returns (start offset in seconds, path) per chunk.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _run(
+        [
+            "-i",
+            str(audio),
+            "-f",
+            "segment",
+            "-segment_time",
+            str(seconds),
+            "-c",
+            "copy",
+            str(out_dir / "chunk_%04d.mp3"),
+        ]
+    )
+    return [(float(i * seconds), p) for i, p in enumerate(sorted(out_dir.glob("chunk_*.mp3")))]
+
+
 def atempo_chain(speed: float) -> str:
     """ffmpeg filter that slows audio by `speed`x. Each atempo stage only goes down to 0.5."""
     if speed < 1:

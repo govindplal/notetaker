@@ -130,6 +130,7 @@ def ledger_entries(notes: LectureNotes, lecture_idx: int) -> list[Concept]:
             lecture_idx=lecture_idx,
             title=s.concept,
             summary=s.summary,
+            key_points=s.key_points,
         )
         for i, s in enumerate(notes.sections)
     ]

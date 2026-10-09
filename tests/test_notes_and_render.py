@@ -16,6 +16,7 @@ def _notes() -> LectureNotes:
                 status="new",
                 concept="Tokenization",
                 summary="Text is converted to token ids before a model sees it.",
+                key_points=["text becomes ids", "subwords beat characters"],
                 related_ids=["L1-c2"],
                 blocks=[
                     Block(type="text", text="Models only understand numbers. -> Tokenization"),
@@ -47,6 +48,7 @@ def test_ledger_entries_get_stable_ids():
     entries = writer.ledger_entries(_notes(), 4)
     assert [e.id for e in entries] == ["L4-c1", "L4-c2"]
     assert entries[0].title == "Tokenization" and entries[0].lecture_idx == 4
+    assert entries[0].key_points == ["text becomes ids", "subwords beat characters"]
 
 
 def test_format_ledger_empty_and_filled():

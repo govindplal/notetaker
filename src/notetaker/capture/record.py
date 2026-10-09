@@ -77,6 +77,16 @@ START_JS = """
 }
 """
 
+SEEK_JS = """
+(t) => new Promise((resolve) => {
+  const v = document.querySelector('video');
+  if (Math.abs(v.currentTime - t) < 0.5) return resolve(v.currentTime);
+  v.addEventListener('seeked', () => resolve(v.currentTime), { once: true });
+  v.currentTime = t;
+  setTimeout(() => resolve(v.currentTime), 8000);
+})
+"""
+
 STATUS_JS = """
 () => {
   const v = document.querySelector('video');
@@ -113,8 +123,13 @@ def record_lecture(
     out_path: Path,
     speed: float = 2.0,
     max_media_seconds: float | None = None,
+    start_at: float = 0.0,
 ) -> Recording:
-    """Record one lecture. `max_media_seconds` stops early (used for short test recordings)."""
+    """Record one lecture from `start_at` seconds (the start by default).
+
+    The player resumes from wherever it was last stopped, so we always seek first.
+    `max_media_seconds` stops early (used for short test recordings).
+    """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     started = time.time()
     with sync_playwright() as pw:
@@ -141,9 +156,11 @@ def record_lecture(
 
                 _press_play(page)
                 page.wait_for_timeout(1500)
+                page.evaluate(SEEK_JS, start_at)
+                page.wait_for_timeout(1500)
                 info = page.evaluate(START_JS, speed)
                 lecture_s = float(info["duration"])
-                # The player may resume from a saved position, so measure from where we start.
+                # Measure from where playback actually starts (a seek can land slightly off).
                 start_t = float(page.evaluate("document.querySelector('video').currentTime"))
                 remaining = lecture_s - start_t
                 limit_media = min(remaining, max_media_seconds or remaining)

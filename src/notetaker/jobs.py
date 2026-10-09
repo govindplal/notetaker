@@ -89,3 +89,23 @@ def requeue_stale(conn: sqlite3.Connection, now: float | None = None) -> int:
         (now - STALE_RUNNING_S,),
     )
     return cur.rowcount
+
+
+def defer(
+    conn: sqlite3.Connection,
+    job_id: int,
+    delay_s: float,
+    reason: str,
+    now: float | None = None,
+) -> None:
+    """Put a running job back in the queue to retry later, without using up an attempt.
+
+    For waits that are not failures: the site says another device is playing, or the account needs
+    signing in again.
+    """
+    now = time.time() if now is None else now
+    conn.execute(
+        "UPDATE jobs SET state = 'queued', attempts = MAX(attempts - 1, 0), error = ?, next_run_at = ? "
+        "WHERE id = ?",
+        (reason, now + delay_s, job_id),
+    )
