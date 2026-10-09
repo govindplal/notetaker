@@ -7,7 +7,12 @@ authors = [
     { name = "GOVIND P LAL", email = "govind.p.lal@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "google-genai>=2.29.0",
+    "imagehash>=4.3.2",
+    "markdown-it-py>=4.2.0",
+    "pillow>=12.3.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]
