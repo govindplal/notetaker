@@ -11,6 +11,7 @@ Updated: 2026-10-09
 
 ## Next
 - Milestone 2 follow-ups: test on a clip with real Hindi speech; add `.env` loading to the CLI; diagram crops (bbox) not built yet.
+- Milestone 3 feasibility (2x in-browser recording) verified on lecture 1: 20 wall-s gave 37.8 media-s and 3.6 MB of audio+video via MediaRecorder on captureStream(). Player allows one playing device per account; the worker must pause on 'Video already playing'.
 - Milestone 3 (capture): direct download is blocked (403). Do not spoof referer/cookies. Options for the owner: real-time recording of normal playback, or manual video/slide upload into the pipeline.
 
 ## Open questions / blocked on the user
