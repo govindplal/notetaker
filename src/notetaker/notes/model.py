@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 BlockType = Literal[
-    "text", "bullets", "table", "formula", "diagram", "example", "problem", "callout"
+    "text", "bullets", "table", "formula", "diagram", "example", "problem", "callout", "code"
 ]
 SectionStatus = Literal["new", "extends"]
 
@@ -20,12 +20,13 @@ class Block(BaseModel):
     rows: list[list[str]] | None = None  # table
     latex: str | None = None  # formula, without $ delimiters
     mermaid: str | None = None  # diagram source
+    code: str | None = None  # code snippet
+    language: str | None = None  # code language, e.g. python
     caption: str | None = None
 
 
 class Section(BaseModel):
     heading: str
-    ts_seconds: int = Field(description="Where the topic starts in the lecture, in seconds.")
     status: SectionStatus = Field(
         description="new: first time in the course. extends: adds something new to a topic covered "
         "earlier (write ONLY the new part)."
@@ -59,13 +60,17 @@ class GlossaryItem(BaseModel):
 
 class LectureNotes(BaseModel):
     title: str
-    tldr: list[str] = Field(description="3 to 5 one-line takeaways.")
+    lead: str = Field(
+        description="2 to 4 plain sentences that open the notes: the question or problem this "
+        "lecture answers and where it lands. No bullet points."
+    )
     sections: list[Section]
     glossary: list[GlossaryItem] = Field(default_factory=list)
     left_out: list[str] = Field(
         default_factory=list,
         description="One short line per chunk of the lecture skipped, with the reason "
-        "(chit-chat, logistics, off-topic Q&A, already covered in Lecture N).",
+        "(chit-chat, logistics, off-topic Q&A, already covered in Lecture N). Kept in the JSON "
+        "for auditing only; the page does not show it.",
     )
 
 

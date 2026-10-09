@@ -2,7 +2,6 @@
 
 import html
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -17,13 +16,6 @@ _env = Environment(
 )
 
 _TAG = re.compile(r"(<[^>]+>)")
-
-
-def mmss(seconds: float) -> str:
-    s = int(seconds)
-    h, rem = divmod(s, 3600)
-    m, sec = divmod(rem, 60)
-    return f"{h}:{m:02d}:{sec:02d}" if h else f"{m:02d}:{sec:02d}"
 
 
 def inline(text: str) -> str:
@@ -57,17 +49,6 @@ def link_terms(rendered: str, glossary: list[GlossaryItem], seen: set[str]) -> s
     return "".join(parts)
 
 
-@dataclass(frozen=True)
-class FrameRef:
-    ts: float
-    href: str  # path relative to the HTML file
-
-
-def nearest_frame(frames: list[FrameRef], ts: float) -> FrameRef | None:
-    before = [f for f in frames if f.ts <= ts + 1]
-    return before[-1] if before else (frames[0] if frames else None)
-
-
 _LIST_LABEL = re.compile(r'(\|"?|\["|\("|\{")(\s*)(\d+)\.\s')
 
 
@@ -89,10 +70,26 @@ def _render_block(b: Block, glossary: list[GlossaryItem], seen: set[str]) -> dic
         d["latex"] = b.latex or ""
     elif b.type == "diagram":
         d["mermaid"] = clean_mermaid(b.mermaid or "")
+    elif b.type == "code":
+        d["code"] = b.code or ""
+        d["language"] = b.language or ""
     elif b.type == "problem":
         d["problem"] = link_terms(block_md(b.text or ""), glossary, seen)
         d["solution"] = link_terms(block_md(b.solution or ""), glossary, seen)
     return d
+
+
+def _slug(text: str, n: int) -> str:
+    return f"s{n}-" + (re.sub(r"\W+", "-", text.lower()).strip("-") or "section")
+
+
+def _pointer(concept_id: str, titles: dict[int, str]) -> str:
+    """Ledger ids look like 'L3-c2'; show them as 'Lecture 3: Title' (title when known)."""
+    m = re.match(r"L(\d+)-", concept_id)
+    if not m:
+        return concept_id
+    n = int(m.group(1))
+    return f"Lecture {n}: {titles[n]}" if n in titles else f"Lecture {n}"
 
 
 def render_lecture(
@@ -100,27 +97,22 @@ def render_lecture(
     *,
     course_title: str,
     lecture_idx: int,
-    lecture_date: str | None = None,
-    frames: list[FrameRef] | None = None,
-    transcript: list[dict] | None = None,
     prev_href: str | None = None,
     next_href: str | None = None,
     index_href: str = "index.html",
     lecture_titles: dict[int, str] | None = None,
 ) -> str:
-    frames = sorted(frames or [], key=lambda f: f.ts)
     seen: set[str] = set()
+    lead = link_terms(inline(notes.lead), notes.glossary, seen)
     sections = []
     for s in notes.sections:
-        fr = nearest_frame(frames, s.ts_seconds)
         sections.append(
             {
+                "id": _slug(s.heading, len(sections) + 1),
                 "heading": s.heading,
-                "ts": mmss(s.ts_seconds),
                 "status": s.status,
-                "concept": s.concept,
+                "what_is_new": s.what_is_new,
                 "related": [_pointer(r, lecture_titles or {}) for r in s.related_ids],
-                "frame": fr.href if fr else None,
                 "blocks": [_render_block(b, notes.glossary, seen) for b in s.blocks],
             }
         )
@@ -133,28 +125,14 @@ def render_lecture(
         for g in notes.glossary
         if g.term.lower() in seen  # only terms that actually appear
     ]
-    tpl = _env.get_template("lecture.html")
-    return tpl.render(
+    return _env.get_template("lecture.html").render(
         notes=notes,
+        lead=lead,
         sections=sections,
         glossary=glossary,
-        tldr=[inline(t) for t in notes.tldr],
-        left_out=[inline(x) for x in notes.left_out],
         course_title=course_title,
         lecture_idx=lecture_idx,
-        lecture_date=lecture_date,
-        frames=[{"ts": mmss(f.ts), "href": f.href} for f in frames],
-        transcript=[{"ts": mmss(s["start"]), "text": s["text"]} for s in (transcript or [])],
         prev_href=prev_href,
         next_href=next_href,
         index_href=index_href,
     )
-
-
-def _pointer(concept_id: str, titles: dict[int, str]) -> str:
-    """Ledger ids look like 'L3-c2'; show them as 'Lecture 3: Title' (title when known)."""
-    m = re.match(r"L(\d+)-", concept_id)
-    if not m:
-        return concept_id
-    n = int(m.group(1))
-    return f"Lecture {n}: {titles[n]}" if n in titles else f"Lecture {n}"

@@ -1,3 +1,5 @@
+<!-- Styling follows the "concept explainer" example at thariqs.github.io/html-effectiveness
+     (Copyright 2026 Anthropic PBC, Apache-2.0). One fixed palette: no dark mode. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,158 +8,118 @@
 <title>{{ notes.title }} · {{ course_title }}</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <style>
-  :root {
-    --bg: #faf9f5; --ink: #1f1e1d; --muted: #6b6a66; --line: #e6e3da; --card: #ffffff;
-    --accent: #d97757; --blue: #6a8caf; --green: #788c5d; --gold: #c2a83e;
-    --code: #f1efe7; --new: #788c5d; --extends: #6a8caf; --recap: #9a978f;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #1b1a18; --ink: #ecebe6; --muted: #a09d94; --line: #34322e; --card: #232220;
-      --code: #2a2825;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #1b1a18; --ink: #ecebe6; --muted: #a09d94; --line: #34322e; --card: #232220; --code: #2a2825;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 17px/1.65 Georgia, "Iowan Old Style", "Times New Roman", serif; }
-  .page { max-width: 1120px; margin: 0 auto; padding: 32px 16px 96px;
-          display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 48px; }
-  @media (max-width: 860px) { .page { grid-template-columns: 1fr; gap: 24px; } aside { order: -1; position: static !important; } }
-  main { min-width: 0; }
-  .eyebrow, .chip, .nav, aside, summary, th, .badge, .meta {
-    font-family: -apple-system, "Segoe UI", system-ui, sans-serif; }
-  .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
-  h1 { font-size: 34px; line-height: 1.2; margin: 6px 0 8px; font-weight: 600; }
-  .meta { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
-  .tldr { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent);
-          border-radius: 8px; padding: 14px 20px; margin: 20px 0 28px; }
-  .tldr b { font-family: -apple-system, system-ui, sans-serif; font-size: 12px; letter-spacing: .08em;
-            text-transform: uppercase; color: var(--muted); }
-  .tldr ul { margin: 8px 0 0; padding-left: 20px; }
-  details.sec { border-top: 1px solid var(--line); padding: 4px 0; }
-  details.sec > summary { cursor: pointer; list-style: none; padding: 14px 0 6px; display: flex;
-        flex-wrap: wrap; align-items: baseline; gap: 10px; }
-  details.sec > summary::-webkit-details-marker { display: none; }
-  details.sec > summary h2 { font-size: 22px; margin: 0; font-weight: 600; flex: 1 1 auto; }
-  .badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #fff;
-           padding: 2px 8px; border-radius: 99px; }
-  .badge.new { background: var(--new); } .badge.extends { background: var(--extends); }
-  .badge.recap { background: var(--recap); }
-  .chip { font-size: 12px; color: var(--muted); border: 1px solid var(--line); background: var(--card);
-          padding: 1px 8px; border-radius: 6px; cursor: pointer; text-decoration: none; }
-  .chip:hover { border-color: var(--accent); color: var(--accent); }
-  .builds { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; color: var(--muted); margin: 0 0 8px; }
-  p { margin: 10px 0; } ul, ol { margin: 8px 0; padding-left: 22px; } li { margin: 4px 0; }
-  code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: .88em; }
-  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 15px; display: block; overflow-x: auto; }
-  th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
-  th { background: var(--code); font-size: 13px; }
-  .formula { overflow-x: auto; margin: 14px 0; text-align: center; }
-  .diagram { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
-             margin: 14px 0; overflow-x: auto; text-align: center; }
-  figcaption, .cap { font-family: -apple-system, system-ui, sans-serif; color: var(--muted); font-size: 13px; margin-top: 6px; }
-  .example { background: var(--card); border: 1px dashed var(--line); border-radius: 8px; padding: 2px 16px; margin: 14px 0; }
-  .example::before { content: "Example"; font: 600 11px -apple-system, system-ui, sans-serif; letter-spacing: .08em;
-                     text-transform: uppercase; color: var(--blue); }
-  .callout { border-left: 4px solid var(--gold); background: var(--card); padding: 2px 16px; margin: 14px 0; border-radius: 0 8px 8px 0; }
-  .problem { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
-  @media (max-width: 600px) { .problem { grid-template-columns: 1fr; } }
-  .problem > div { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 2px 16px; }
-  .problem h4 { font: 600 11px -apple-system, system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase;
-                margin: 10px 0 0; color: var(--accent); }
-  .problem .sol h4 { color: var(--green); }
-  .term { border-bottom: 1px dotted var(--accent); cursor: help; }
-  .term.on, dt.on { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-  aside { position: sticky; top: 24px; align-self: start; font-size: 14px; max-height: calc(100vh - 48px); overflow: auto; }
-  aside .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-  aside dt { font-weight: 600; margin-top: 12px; padding: 1px 4px; border-radius: 4px; }
-  aside dd { margin: 2px 0 0 4px; color: var(--muted); }
-  .nav { display: flex; justify-content: space-between; gap: 12px; margin: 28px 0 0; font-size: 14px; }
-  .nav a { color: var(--accent); text-decoration: none; }
-  details.more { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 15px; }
-  details.more summary { cursor: pointer; font-size: 14px; color: var(--muted); padding: 6px 0; }
-  .frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
-  .frames a { display: block; font: 12px -apple-system, system-ui, sans-serif; color: var(--muted); text-decoration: none; }
-  .frames img { width: 100%; border-radius: 6px; border: 1px solid var(--line); display: block; }
-  .tr { font-size: 14px; } .tr p { margin: 4px 0; } .tr b { font-family: -apple-system, system-ui, sans-serif; color: var(--muted); font-weight: 500; margin-right: 6px; }
-  dialog { border: 0; padding: 0; background: transparent; max-width: 96vw; }
-  dialog::backdrop { background: rgba(0,0,0,.7); } dialog img { max-width: 96vw; max-height: 92vh; border-radius: 8px; }
+  :root { color-scheme: light; --ivory: #FAF9F5; --slate: #141413; --clay: #D97757; --oat: #E3DACC; --olive: #788C5D; --sky: #6A8CAF;
+          --gray-150: #F0EEE6; --gray-300: #D1CFC5; --gray-500: #87867F; --gray-700: #3D3D3A;
+          --serif: ui-serif, Georgia, "Times New Roman", serif; --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+          --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--ivory); color: var(--gray-700); font-family: var(--sans); font-size: 15px; line-height: 1.65;
+         -webkit-font-smoothing: antialiased; padding: 56px 24px 120px; }
+  .page { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 48px; }
+  @media (max-width: 960px) { .page { grid-template-columns: 1fr; } aside { order: 2; position: static; } }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--gray-500); margin-bottom: 10px; }
+  .eyebrow a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--gray-300); }
+  h1 { font-family: var(--serif); font-weight: 500; font-size: 33px; color: var(--slate); letter-spacing: -.01em; margin-bottom: 12px; }
+  .lead { max-width: 640px; margin-bottom: 8px; }
+  h2 { font-family: var(--serif); font-weight: 500; font-size: 22px; color: var(--slate); margin: 40px 0 12px; }
+  .tag { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--gray-500); margin: -6px 0 12px; max-width: 680px; }
+  .tag b { color: var(--clay); font-weight: 500; }
+  p { margin-bottom: 12px; max-width: 680px; }
+  ul, ol { margin: 0 0 12px 20px; max-width: 680px; } li { margin-bottom: 5px; }
+  code { font-family: var(--mono); font-size: 13px; }
+  .term { border-bottom: 1.5px dotted var(--clay); cursor: help; color: var(--slate); }
+  .card { border: 1.5px solid var(--gray-300); border-radius: 14px; background: #fff; padding: 20px 24px; margin: 12px 0 8px; max-width: 680px; }
+  .card.wide { max-width: none; text-align: center; overflow-x: auto; }
+  .card .label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--gray-500); margin-bottom: 8px; }
+  .card p:last-child { margin-bottom: 0; }
+  .cap { font-size: 13px; color: var(--gray-500); max-width: 640px; margin: 4px 0 12px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0 8px; max-width: 680px; }
+  @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
+  .pair .card { margin: 0; } .pair .good .label { color: var(--olive); } .pair .bad .label { color: rgb(176, 74, 63); }
+  .callout { border-left: 3px solid var(--clay); padding: 2px 0 2px 16px; margin: 12px 0; max-width: 680px; color: var(--slate); }
+  .formula { margin: 12px 0; max-width: 680px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; max-width: 640px; font-size: 13.5px; margin: 12px 0; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--gray-300); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--gray-500); font-weight: 500; }
+  aside { position: sticky; top: 32px; align-self: start; border: 1.5px solid var(--gray-300); border-radius: 12px; background: #fff; padding: 18px 18px 8px; }
+  aside .label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--gray-500); margin-bottom: 12px; }
+  aside dl dt { font-family: var(--serif); font-size: 15px; color: var(--slate); }
+  aside dl dd { font-size: 12.5px; line-height: 1.5; color: var(--gray-700); margin: 2px 0 14px; }
+  aside dl dt.hl, aside dl dt.hl + dd { background: rgba(217, 119, 87, .1); margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px; border-radius: 4px; }
+  aside .toc { list-style: none; margin: 0 0 18px; font-size: 12.5px; line-height: 1.4; }
+  aside .toc li { margin: 0 0 7px; } aside .toc a { color: var(--gray-700); text-decoration: none; }
+  aside .toc a:hover { color: var(--clay); }
+  aside .label + dl, aside .label + .toc { margin-top: 0; }
+  pre.code { background: #fff; border: 1.5px solid var(--gray-300); border-radius: 10px; padding: 14px 18px; margin: 12px 0 8px;
+             max-width: 680px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.55; color: var(--slate); }
+  html { scroll-behavior: smooth; } h2 { scroll-margin-top: 24px; }
+  .nav { display: flex; justify-content: space-between; margin-top: 48px; max-width: 680px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+  .nav a { color: var(--clay); text-decoration: none; }
 </style>
 </head>
 <body>
 <div class="page">
 <main>
-  <div class="nav"><a href="{{ index_href }}">← {{ course_title }}</a><span>Lecture {{ lecture_idx }}</span></div>
-  <div class="eyebrow">{{ course_title }} · Lecture {{ lecture_idx }}</div>
+  <div class="eyebrow"><a href="{{ index_href }}">{{ course_title }}</a> · Lecture {{ lecture_idx }}</div>
   <h1>{{ notes.title }}</h1>
-  {% if lecture_date %}<div class="meta">{{ lecture_date }}</div>{% endif %}
-
-  <div class="tldr"><b>In short</b>
-    <ul>{% for t in tldr %}<li>{{ t|safe }}</li>{% endfor %}</ul>
-  </div>
+  <p class="lead">{{ lead|safe }}</p>
 
   {% for s in sections %}
-  <details class="sec" open>
-    <summary>
-      <h2>{{ s.heading }}</h2>
-      <span class="badge {{ s.status }}">{{ {"new": "New", "extends": "Adds to earlier"}[s.status] }}</span>
-      {% if s.frame %}<a class="chip" href="{{ s.frame }}" data-frame="{{ s.frame }}" title="Slide at this point">{{ s.ts }} · slide</a>
-      {% else %}<span class="chip">{{ s.ts }}</span>{% endif %}
-    </summary>
-    {% if s.related %}<p class="builds">Builds on: {{ s.related|join(", ") }}</p>{% endif %}
-    {% for b in s.blocks %}
-      {% if b.type == "text" %}{{ b.html|safe }}
-      {% elif b.type == "bullets" %}<ul>{% for i in b["items"] %}<li>{{ i|safe }}</li>{% endfor %}</ul>
-      {% elif b.type == "table" %}
-        <table><thead><tr>{% for h in b.headers %}<th>{{ h|safe }}</th>{% endfor %}</tr></thead>
-        <tbody>{% for row in b.rows %}<tr>{% for c in row %}<td>{{ c|safe }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
-        {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
-      {% elif b.type == "formula" %}<div class="formula" data-latex="{{ b.latex }}"></div>
-      {% elif b.type == "diagram" %}<figure class="diagram" style="margin:14px 0"><pre class="mermaid">{{ b.mermaid }}</pre>
-        {% if b.caption %}<figcaption>{{ b.caption }}</figcaption>{% endif %}</figure>
-      {% elif b.type == "example" %}<div class="example">{{ b.html|safe }}</div>
-      {% elif b.type == "callout" %}<div class="callout">{{ b.html|safe }}</div>
-      {% elif b.type == "problem" %}<div class="problem"><div><h4>Problem</h4>{{ b.problem|safe }}</div>
-        <div class="sol"><h4>Solution</h4>{{ b.solution|safe }}</div></div>
-      {% endif %}
-    {% endfor %}
-  </details>
+  <h2 id="{{ s.id }}">{{ s.heading }}</h2>
+  {% if s.status == "extends" or s.related %}
+  <div class="tag">{% if s.status == "extends" %}<b>adds to earlier</b>{% if s.what_is_new %} · {{ s.what_is_new }}{% endif %}{% endif %}{% if s.related %}{% if s.status == "extends" %} · {% endif %}builds on {{ s.related|join(", ") }}{% endif %}</div>
+  {% endif %}
+  {% for b in s.blocks %}
+    {% if b.type == "text" %}{{ b.html|safe }}
+    {% elif b.type == "bullets" %}<ul>{% for i in b["items"] %}<li>{{ i|safe }}</li>{% endfor %}</ul>
+    {% elif b.type == "table" %}
+      <table><thead><tr>{% for h in b.headers %}<th>{{ h|safe }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for row in b.rows %}<tr>{% for c in row %}<td>{{ c|safe }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+      {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
+    {% elif b.type == "formula" %}<div class="formula" data-latex="{{ b.latex }}"></div>
+    {% elif b.type == "diagram" %}<div class="card wide"><pre class="mermaid">{{ b.mermaid }}</pre></div>
+      {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
+    {% elif b.type == "example" %}<div class="card"><div class="label">Example</div>{{ b.html|safe }}</div>
+    {% elif b.type == "code" %}<pre class="code"><code>{{ b.code }}</code></pre>
+      {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
+    {% elif b.type == "callout" %}<div class="callout">{{ b.html|safe }}</div>
+    {% elif b.type == "problem" %}<div class="pair"><div class="card bad"><div class="label">Problem</div>{{ b.problem|safe }}</div>
+      <div class="card good"><div class="label">Solution</div>{{ b.solution|safe }}</div></div>
+    {% endif %}
+  {% endfor %}
   {% endfor %}
 
-  {% if left_out %}
-  <details class="more"><summary>Left out of these notes ({{ left_out|length }})</summary>
-    <ul>{% for x in left_out %}<li>{{ x|safe }}</li>{% endfor %}</ul></details>
+  {% if prev_href or next_href %}
+  <div class="nav"><span>{% if prev_href %}<a href="{{ prev_href }}">← Previous</a>{% endif %}</span>
+    <span>{% if next_href %}<a href="{{ next_href }}">Next →</a>{% endif %}</span></div>
   {% endif %}
-  {% if frames %}
-  <details class="more"><summary>All frames ({{ frames|length }})</summary>
-    <div class="frames">{% for f in frames %}<a href="{{ f.href }}" data-frame="{{ f.href }}"><img loading="lazy" src="{{ f.href }}" alt="frame at {{ f.ts }}">{{ f.ts }}</a>{% endfor %}</div></details>
-  {% endif %}
-  {% if transcript %}
-  <details class="more"><summary>Full transcript ({{ transcript|length }} segments)</summary>
-    <div class="tr">{% for t in transcript %}<p><b>{{ t.ts }}</b>{{ t.text }}</p>{% endfor %}</div></details>
-  {% endif %}
-
-  <div class="nav"><span>{% if prev_href %}<a href="{{ prev_href }}">← Previous lecture</a>{% endif %}</span>
-    <span>{% if next_href %}<a href="{{ next_href }}">Next lecture →</a>{% endif %}</span></div>
 </main>
 
-{% if glossary %}
 <aside>
+  {% if sections|length > 1 %}
+  <div class="label">On this page</div>
+  <ol class="toc">{% for s in sections %}<li><a href="#{{ s.id }}">{{ s.heading }}</a></li>{% endfor %}</ol>
+  {% endif %}
+  {% if glossary %}
   <div class="label">Glossary</div>
   <dl id="gloss">{% for g in glossary %}<dt data-g="{{ g.slug }}">{{ g.term }}</dt><dd>{{ g.definition|safe }}</dd>{% endfor %}</dl>
+  {% endif %}
 </aside>
-{% endif %}
 </div>
-<dialog id="lightbox"><img alt=""></dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script type="module">
   import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs";
-  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-  mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "neutral" });
+  mermaid.initialize({
+    startOnLoad: false, theme: "base",
+    themeVariables: {
+      fontFamily: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif", fontSize: "14px",
+      background: "#ffffff", primaryColor: "#F0EEE6", primaryBorderColor: "#D1CFC5", primaryTextColor: "#141413",
+      secondaryColor: "#E3DACC", tertiaryColor: "#FAF9F5", lineColor: "#87867F", textColor: "#3D3D3A",
+      edgeLabelBackground: "#ffffff", noteBkgColor: "#F0EEE6", noteBorderColor: "#D1CFC5",
+      actorBkg: "#F0EEE6", actorBorder: "#D1CFC5", actorTextColor: "#141413", signalColor: "#87867F", signalTextColor: "#3D3D3A",
+    },
+  });
   // Render each diagram on its own so one bad diagram does not hide the others.
   for (const node of document.querySelectorAll("pre.mermaid")) {
     try { await mermaid.run({ nodes: [node] }); } catch (e) { node.classList.add("failed"); }
@@ -168,17 +130,11 @@
     try { katex.render(el.dataset.latex, el, { displayMode: true, throwOnError: false }); }
     catch (e) { el.textContent = el.dataset.latex; }
   });
-  const box = document.getElementById("lightbox");
-  document.querySelectorAll("[data-frame]").forEach((a) => a.addEventListener("click", (e) => {
-    e.preventDefault(); e.stopPropagation();
-    box.querySelector("img").src = a.dataset.frame; box.showModal();
-  }));
-  box.addEventListener("click", () => box.close());
-  document.querySelectorAll(".term").forEach((t) => {
-    const dt = document.querySelector('dt[data-g="' + t.dataset.term + '"]');
+  document.querySelectorAll(".term").forEach((el) => {
+    const dt = document.querySelector('dt[data-g="' + el.dataset.term + '"]');
     if (!dt) return;
-    t.addEventListener("mouseenter", () => { t.classList.add("on"); dt.classList.add("on"); dt.scrollIntoView({ block: "nearest" }); });
-    t.addEventListener("mouseleave", () => { t.classList.remove("on"); dt.classList.remove("on"); });
+    el.addEventListener("mouseenter", () => dt.classList.add("hl"));
+    el.addEventListener("mouseleave", () => dt.classList.remove("hl"));
   });
 </script>
 </body>

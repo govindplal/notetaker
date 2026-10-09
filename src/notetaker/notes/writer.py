@@ -22,7 +22,8 @@ of topics earlier lectures in this course already taught.
 Keep only knowledge a student would want to revise: definitions, concepts, how and why things work,
 useful examples, formulas the lecture relies on, procedures, tools and their commands, pitfalls.
 Take slide and board content from the frames and put it in the notes as text, tables or a Mermaid
-diagram. Do not refer to "the slide" or "the instructor".
+diagram. The frames and transcript are thrown away afterwards, so the notes must stand alone: never
+mention timestamps, "the slide", "the video" or "the instructor".
 
 ## What to drop (put one short line for each in `left_out`)
 - greetings, logistics, announcements, deadlines, attendance, "can you hear me", jokes, off-topic talk
@@ -45,12 +46,13 @@ do not write the section. Use status "new" only for topics absent from the LEDGE
 for new sections too when they build on earlier ones.
 
 ## Format
-- Sections in teaching order, each with `ts_seconds` where the topic starts. Usually 5 to 12 sections for a long lecture. Fill `key_points` for every section.
+- Sections in teaching order. Usually 5 to 12 sections for a long lecture. Fill `key_points` for every section.
 - Block types: text, bullets, table (comparisons), formula (LaTeX, no $ signs), diagram (valid
   Mermaid, one statement per line; quote any label containing brackets, colons or commas; never start
   a label with a number and a dot like "1. Query", write "1 - Query" instead), example, problem (problem plus
-  solution), callout (one thing not to forget). Use a diagram only when a flow or structure helps.
-- `tldr`: 3 to 5 one-line takeaways. `glossary`: up to 10 terms worth a hover definition.
+  solution), callout (one thing not to forget), code (a short snippet the lecture
+  writes or relies on, with `language`; keep it minimal and runnable). Use a diagram only when a flow or structure helps.
+- `lead`: 2 to 4 plain sentences opening the notes with the question this lecture answers. `glossary`: up to 10 terms worth a hover definition.
 - Write in English. Keep Hindi technical terms as spoken, with the English meaning beside them.
 - Never invent content the lecture did not cover.
 

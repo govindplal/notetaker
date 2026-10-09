@@ -5,7 +5,8 @@ from notetaker.db import connect
 def test_schema_creates_all_tables_and_enables_wal(tmp_path):
     conn = connect(tmp_path / "t.db")
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-    assert {"courses", "lectures", "jobs", "transcripts", "frames", "notes"} <= tables
+    assert {"courses", "lectures", "jobs", "concepts", "notes"} <= tables
+    assert not {"transcripts", "frames"} & tables  # never stored
     assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
 
 

@@ -9,11 +9,10 @@ from notetaker.render import html as render
 def _notes() -> LectureNotes:
     return LectureNotes(
         title="Tokenization",
-        tldr=["Text becomes **numbers** first."],
+        lead="Text has to become **numbers** before a model can use it. Tokenization is that step.",
         sections=[
             Section(
                 heading="Why tokenize",
-                ts_seconds=75,
                 status="new",
                 concept="Tokenization",
                 summary="Text is converted to token ids before a model sees it.",
@@ -25,11 +24,11 @@ def _notes() -> LectureNotes:
                     Block(type="formula", latex="x^2"),
                     Block(type="diagram", mermaid="flowchart LR\n A --> B"),
                     Block(type="problem", text="13 steps per word", solution="Use subwords"),
+                    Block(type="code", code="ids = tok.encode(text)", language="python"),
                 ],
             ),
             Section(
                 heading="BPE",
-                ts_seconds=600,
                 status="extends",
                 concept="BPE",
                 summary="Merges frequent pairs.",
@@ -73,31 +72,28 @@ def test_ledger_roundtrip(tmp_path):
 
 
 def test_render_contains_all_parts_and_escapes_html():
-    out = render.render_lecture(
-        _notes(),
-        course_title="AI and ML",
-        lecture_idx=4,
-        frames=[render.FrameRef(0, "frames/000000.jpg"), render.FrameRef(80, "frames/000080.jpg")],
-        transcript=[{"start": 0, "end": 3, "text": "hello there"}],
-    )
-    assert "Why tokenize" in out and "Adds to earlier" in out
+    out = render.render_lecture(_notes(), course_title="AI and ML", lecture_idx=4)
+    assert "Why tokenize" in out and "adds to earlier" in out
     assert 'class="mermaid"' in out and "flowchart LR" in out
     assert 'data-latex="x^2"' in out
     assert "<script>alert(1)</script>" not in out  # untrusted markup is escaped
     assert 'data-term="tokenization"' in out  # glossary term linked once
     assert out.count('class="term"') == 1
     assert "Unused" not in out  # glossary terms that never appear are dropped
-    assert "Left out of these notes (2)" in out
-    assert "frames/000080.jpg" in out  # section at 01:15 points at the nearest earlier frame
-    assert "hello there" in out
-    assert "Builds on: Lecture 1" in out
+    assert "Left out" not in out and "Greetings" not in out  # audit list is JSON-only
+    assert "On this page" in out and 'href="#s1-why-tokenize"' in out
+    assert "builds on Lecture 1" in out
+    assert "Text has to become" in out  # the lead paragraph
+    assert '<pre class="code"><code>ids = tok.encode(text)</code></pre>' in out
 
 
-def test_nearest_frame_picks_latest_not_after_timestamp():
-    frames = [render.FrameRef(0, "a"), render.FrameRef(50, "b"), render.FrameRef(100, "c")]
-    assert render.nearest_frame(frames, 70).href == "b"
-    assert render.nearest_frame(frames, -5).href == "a"
-    assert render.nearest_frame([], 10) is None
+def test_render_uses_one_light_palette_and_no_media():
+    out = render.render_lecture(_notes(), course_title="AI and ML", lecture_idx=4)
+    assert "#FAF9F5" in out and "#D97757" in out  # reference palette
+    assert "prefers-color-scheme" not in out and 'data-theme="dark"' not in out
+    # frames, transcripts and timestamps are never shown
+    for banned in ("<img", "frames/", "Full transcript", "All frames", "data-frame", "<dialog"):
+        assert banned not in out
 
 
 def test_clean_mermaid_rewrites_list_like_labels():

@@ -34,23 +34,18 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 CREATE INDEX IF NOT EXISTS jobs_ready ON jobs (state, next_run_at);
 
-CREATE TABLE IF NOT EXISTS transcripts (
-    lecture_id INTEGER PRIMARY KEY REFERENCES lectures(id),
-    segments_json TEXT NOT NULL,
-    provider TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS frames (
-    id INTEGER PRIMARY KEY,
-    lecture_id INTEGER NOT NULL REFERENCES lectures(id),
-    ts REAL NOT NULL,
-    path TEXT NOT NULL,
-    phash TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS concepts (
+    id TEXT PRIMARY KEY,  -- e.g. L3-c2
+    course_id INTEGER NOT NULL REFERENCES courses(id),
+    lecture_idx INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    key_points_json TEXT NOT NULL DEFAULT '[]'
 );
 
 CREATE TABLE IF NOT EXISTS notes (
     lecture_id INTEGER PRIMARY KEY REFERENCES lectures(id),
-    markdown TEXT NOT NULL,
+    json TEXT NOT NULL,  -- structured notes; transcripts and frames are never stored
     model TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
