@@ -1,5 +1,6 @@
-<!-- Styling follows the "concept explainer" example at thariqs.github.io/html-effectiveness
-     (Copyright 2026 Anthropic PBC, Apache-2.0). One fixed palette: no dark mode. -->
+<!-- Layout and styling follow "How rate limiting works" (research feature explainer) from
+     github.com/ThariqS/html-effectiveness (Copyright 2026 Anthropic PBC, Apache-2.0).
+     One fixed palette: no dark mode. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -15,96 +16,126 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--ivory); color: var(--gray-700); font-family: var(--sans); font-size: 15px; line-height: 1.65;
          -webkit-font-smoothing: antialiased; padding: 56px 24px 120px; }
-  .page { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 48px; }
-  @media (max-width: 960px) { .page { grid-template-columns: 1fr; } aside { order: 2; position: static; } }
+  .page { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+  @media (max-width: 920px) { .page { grid-template-columns: 1fr; } nav { display: none; } }
+
+  nav { position: sticky; top: 32px; align-self: start; font-size: 13px; max-height: calc(100vh - 64px); overflow: auto; }
+  nav .label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--gray-500); margin-bottom: 12px; }
+  nav a { display: block; padding: 5px 0 5px 12px; border-left: 2px solid var(--gray-300); color: var(--gray-700); text-decoration: none; }
+  nav a:hover { color: var(--slate); border-color: var(--slate); }
+
+  header { margin-bottom: 12px; }
   .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--gray-500); margin-bottom: 10px; }
   .eyebrow a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--gray-300); }
-  h1 { font-family: var(--serif); font-weight: 500; font-size: 33px; color: var(--slate); letter-spacing: -.01em; margin-bottom: 12px; }
-  .lead { max-width: 640px; margin-bottom: 8px; }
-  h2 { font-family: var(--serif); font-weight: 500; font-size: 22px; color: var(--slate); margin: 40px 0 12px; }
+  h1 { font-family: var(--serif); font-weight: 500; font-size: 32px; line-height: 1.25; color: var(--slate); letter-spacing: -.01em; margin-bottom: 14px; }
+  .tldr { border: 1.5px solid var(--gray-300); border-left: 3px solid var(--clay); border-radius: 10px; background: #fff; padding: 16px 18px; margin-bottom: 8px; max-width: 720px; }
+  .tldr b { color: var(--slate); }
+
+  h2 { font-family: var(--serif); font-weight: 500; font-size: 22px; color: var(--slate); margin: 40px 0 14px; scroll-margin-top: 24px; }
   .tag { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--gray-500); margin: -6px 0 12px; max-width: 680px; }
   .tag b { color: var(--clay); font-weight: 500; }
   p { margin-bottom: 12px; max-width: 680px; }
   ul, ol { margin: 0 0 12px 20px; max-width: 680px; } li { margin-bottom: 5px; }
   code { font-family: var(--mono); font-size: 13px; }
-  .term { border-bottom: 1.5px dotted var(--clay); cursor: help; color: var(--slate); }
-  .card { border: 1.5px solid var(--gray-300); border-radius: 14px; background: #fff; padding: 20px 24px; margin: 12px 0 8px; max-width: 680px; }
+  html { scroll-behavior: smooth; }
+
+  .term { position: relative; border-bottom: 1.5px dotted var(--clay); cursor: help; color: var(--slate); }
+  .term:hover::after { content: attr(data-def); position: absolute; left: 0; top: 100%; z-index: 5; width: max-content; max-width: 260px; margin-top: 6px;
+                       background: var(--slate); color: #fff; font: 12.5px/1.5 var(--sans); padding: 8px 10px; border-radius: 8px; }
+
+  .card { border: 1.5px solid var(--gray-300); border-radius: 10px; background: #fff; padding: 16px 18px; margin: 14px 0; max-width: 680px; }
   .card.wide { max-width: none; text-align: center; overflow-x: auto; }
   .card .label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--gray-500); margin-bottom: 8px; }
   .card p:last-child { margin-bottom: 0; }
   .cap { font-size: 13px; color: var(--gray-500); max-width: 640px; margin: 4px 0 12px; }
-  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0 8px; max-width: 680px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; max-width: 680px; }
   @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
   .pair .card { margin: 0; } .pair .good .label { color: var(--olive); } .pair .bad .label { color: rgb(176, 74, 63); }
-  .callout { border-left: 3px solid var(--clay); padding: 2px 0 2px 16px; margin: 12px 0; max-width: 680px; color: var(--slate); }
   .formula { margin: 12px 0; max-width: 680px; overflow-x: auto; }
+
+  details { border: 1.5px solid var(--gray-300); border-radius: 10px; background: #fff; margin: 14px 0; overflow: hidden; max-width: 680px; }
+  summary { list-style: none; cursor: pointer; padding: 14px 16px; font-family: var(--serif); font-size: 16px; color: var(--slate); display: flex; align-items: baseline; gap: 10px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "▸"; color: var(--clay); font-family: var(--sans); font-size: 12px; transition: transform 120ms; }
+  details[open] summary::before { transform: rotate(90deg); }
+  details .body { padding: 0 16px 16px; } details .body p { font-size: 14px; } details .body p:last-child { margin-bottom: 0; }
+
+  .tabs { border: 1.5px solid var(--gray-300); border-radius: 10px; background: #fff; margin: 16px 0 8px; overflow: hidden; max-width: 680px; }
+  .tabbar { display: flex; border-bottom: 1px solid var(--gray-300); background: var(--gray-150); }
+  .tabbar button { appearance: none; border: none; background: none; font-family: var(--mono); font-size: 12px; color: var(--gray-500);
+                   padding: 10px 16px; cursor: pointer; border-right: 1px solid var(--gray-300); }
+  .tabbar button.on { background: #fff; color: var(--slate); border-bottom: 2px solid var(--clay); margin-bottom: -1px; }
+  .tabs pre { display: none; margin: 0; padding: 16px 18px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--slate); overflow-x: auto; }
+  .tabs pre.on { display: block; }
+
+  .callout { display: flex; gap: 12px; border: 1.5px solid var(--oat); background: rgba(227, 218, 204, .35); border-radius: 10px; padding: 14px 16px; margin: 18px 0; font-size: 14px; max-width: 680px; }
+  .callout .ico { color: var(--clay); font-weight: 600; } .callout p:last-child { margin-bottom: 0; }
+
   table { border-collapse: collapse; width: 100%; max-width: 640px; font-size: 13.5px; margin: 12px 0; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--gray-300); vertical-align: top; }
   th { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--gray-500); font-weight: 500; }
-  aside { position: sticky; top: 32px; align-self: start; border: 1.5px solid var(--gray-300); border-radius: 12px; background: #fff; padding: 18px 18px 8px; }
-  aside .label { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--gray-500); margin-bottom: 12px; }
-  aside dl dt { font-family: var(--serif); font-size: 15px; color: var(--slate); }
-  aside dl dd { font-size: 12.5px; line-height: 1.5; color: var(--gray-700); margin: 2px 0 14px; }
-  aside dl dt.hl, aside dl dt.hl + dd { background: rgba(217, 119, 87, .1); margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px; border-radius: 4px; }
-  aside .toc { list-style: none; margin: 0 0 18px; font-size: 12.5px; line-height: 1.4; }
-  aside .toc li { margin: 0 0 7px; } aside .toc a { color: var(--gray-700); text-decoration: none; }
-  aside .toc a:hover { color: var(--clay); }
-  aside .label + dl, aside .label + .toc { margin-top: 0; }
-  pre.code { background: #fff; border: 1.5px solid var(--gray-300); border-radius: 10px; padding: 14px 18px; margin: 12px 0 8px;
-             max-width: 680px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.55; color: var(--slate); }
-  html { scroll-behavior: smooth; } h2 { scroll-margin-top: 24px; }
+
+  dl.faq { margin-top: 8px; }
+  dl.faq dt { font-family: var(--serif); font-size: 16px; color: var(--slate); margin-top: 18px; }
+  dl.faq dd { font-size: 14px; margin: 4px 0 0; max-width: 640px; }
+
   .nav { display: flex; justify-content: space-between; margin-top: 48px; max-width: 680px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
   .nav a { color: var(--clay); text-decoration: none; }
 </style>
 </head>
 <body>
 <div class="page">
-<main>
-  <div class="eyebrow"><a href="{{ index_href }}">{{ course_title }}</a> · Lecture {{ lecture_idx }}</div>
-  <h1>{{ notes.title }}</h1>
-  <p class="lead">{{ lead|safe }}</p>
 
-  {% for s in sections %}
-  <h2 id="{{ s.id }}">{{ s.heading }}</h2>
-  {% if s.status == "extends" or s.related %}
-  <div class="tag">{% if s.status == "extends" %}<b>adds to earlier</b>{% if s.what_is_new %} · {{ s.what_is_new }}{% endif %}{% endif %}{% if s.related %}{% if s.status == "extends" %} · {% endif %}builds on {{ s.related|join(", ") }}{% endif %}</div>
-  {% endif %}
-  {% for b in s.blocks %}
-    {% if b.type == "text" %}{{ b.html|safe }}
-    {% elif b.type == "bullets" %}<ul>{% for i in b["items"] %}<li>{{ i|safe }}</li>{% endfor %}</ul>
-    {% elif b.type == "table" %}
-      <table><thead><tr>{% for h in b.headers %}<th>{{ h|safe }}</th>{% endfor %}</tr></thead>
-      <tbody>{% for row in b.rows %}<tr>{% for c in row %}<td>{{ c|safe }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
-      {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
-    {% elif b.type == "formula" %}<div class="formula" data-latex="{{ b.latex }}"></div>
-    {% elif b.type == "diagram" %}<div class="card wide"><pre class="mermaid">{{ b.mermaid }}</pre></div>
-      {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
-    {% elif b.type == "example" %}<div class="card"><div class="label">Example</div>{{ b.html|safe }}</div>
-    {% elif b.type == "code" %}<pre class="code"><code>{{ b.code }}</code></pre>
-      {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
-    {% elif b.type == "callout" %}<div class="callout">{{ b.html|safe }}</div>
-    {% elif b.type == "problem" %}<div class="pair"><div class="card bad"><div class="label">Problem</div>{{ b.problem|safe }}</div>
-      <div class="card good"><div class="label">Solution</div>{{ b.solution|safe }}</div></div>
+  <nav>
+    <div class="label">On this page</div>
+    <a href="#tldr">In short</a>
+    {% for s in sections %}<a href="#{{ s.id }}">{{ s.heading }}</a>{% endfor %}
+    {% if glossary %}<a href="#glossary">Glossary</a>{% endif %}
+  </nav>
+
+  <main>
+    <header>
+      <div class="eyebrow"><a href="{{ index_href }}">{{ course_title }}</a> · Lecture {{ lecture_idx }} · lecture notes</div>
+      <h1>{{ notes.title }}</h1>
+      <div class="tldr" id="tldr"><b>In short</b> — {{ lead|safe }}</div>
+    </header>
+
+    {% for s in sections %}
+    <h2 id="{{ s.id }}">{{ s.heading }}</h2>
+    {% if s.status == "extends" or s.related %}
+    <div class="tag">{% if s.status == "extends" %}<b>adds to earlier</b>{% if s.what_is_new %} · {{ s.what_is_new }}{% endif %}{% endif %}{% if s.related %}{% if s.status == "extends" %} · {% endif %}builds on {{ s.related|join(", ") }}{% endif %}</div>
     {% endif %}
-  {% endfor %}
-  {% endfor %}
+    {% for b in s.blocks %}
+      {% if b.type == "text" %}{{ b.html|safe }}
+      {% elif b.type == "bullets" %}<ul>{% for i in b["items"] %}<li>{{ i|safe }}</li>{% endfor %}</ul>
+      {% elif b.type == "table" %}
+        <table><thead><tr>{% for h in b.headers %}<th>{{ h|safe }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for row in b.rows %}<tr>{% for c in row %}<td>{{ c|safe }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+        {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
+      {% elif b.type == "formula" %}<div class="formula" data-latex="{{ b.latex }}"></div>
+      {% elif b.type == "diagram" %}<div class="card wide"><pre class="mermaid">{{ b.mermaid }}</pre></div>
+        {% if b.caption %}<div class="cap">{{ b.caption }}</div>{% endif %}
+      {% elif b.type == "codegroup" %}<div class="tabs" data-tabs>
+        {% if b.tabs|length > 1 %}<div class="tabbar">{% for t in b.tabs %}<button class="{{ 'on' if loop.first }}" data-t="{{ loop.index0 }}">{{ t.label }}</button>{% endfor %}</div>{% endif %}
+        {% for t in b.tabs %}<pre class="{{ 'on' if loop.first }}"><code>{{ t.code }}</code></pre>{% endfor %}</div>
+      {% elif b.type == "example" %}<details open><summary>Example</summary><div class="body">{{ b.html|safe }}</div></details>
+      {% elif b.type == "callout" %}<div class="callout"><span class="ico">!</span><div>{{ b.html|safe }}</div></div>
+      {% elif b.type == "problem" %}<div class="pair"><div class="card bad"><div class="label">Problem</div>{{ b.problem|safe }}</div>
+        <div class="card good"><div class="label">Solution</div>{{ b.solution|safe }}</div></div>
+      {% endif %}
+    {% endfor %}
+    {% endfor %}
 
-  {% if prev_href or next_href %}
-  <div class="nav"><span>{% if prev_href %}<a href="{{ prev_href }}">← Previous</a>{% endif %}</span>
-    <span>{% if next_href %}<a href="{{ next_href }}">Next →</a>{% endif %}</span></div>
-  {% endif %}
-</main>
+    {% if glossary %}
+    <h2 id="glossary">Glossary</h2>
+    <dl class="faq">{% for g in glossary %}<dt>{{ g.term }}</dt><dd>{{ g.definition|safe }}</dd>{% endfor %}</dl>
+    {% endif %}
 
-<aside>
-  {% if sections|length > 1 %}
-  <div class="label">On this page</div>
-  <ol class="toc">{% for s in sections %}<li><a href="#{{ s.id }}">{{ s.heading }}</a></li>{% endfor %}</ol>
-  {% endif %}
-  {% if glossary %}
-  <div class="label">Glossary</div>
-  <dl id="gloss">{% for g in glossary %}<dt data-g="{{ g.slug }}">{{ g.term }}</dt><dd>{{ g.definition|safe }}</dd>{% endfor %}</dl>
-  {% endif %}
-</aside>
+    {% if prev_href or next_href %}
+    <div class="nav"><span>{% if prev_href %}<a href="{{ prev_href }}">← Previous</a>{% endif %}</span>
+      <span>{% if next_href %}<a href="{{ next_href }}">Next →</a>{% endif %}</span></div>
+    {% endif %}
+  </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -130,11 +161,11 @@
     try { katex.render(el.dataset.latex, el, { displayMode: true, throwOnError: false }); }
     catch (e) { el.textContent = el.dataset.latex; }
   });
-  document.querySelectorAll(".term").forEach((el) => {
-    const dt = document.querySelector('dt[data-g="' + el.dataset.term + '"]');
-    if (!dt) return;
-    el.addEventListener("mouseenter", () => dt.classList.add("hl"));
-    el.addEventListener("mouseleave", () => dt.classList.remove("hl"));
+  document.querySelectorAll("[data-tabs]").forEach((box) => {
+    const buttons = box.querySelectorAll(".tabbar button"), panes = box.querySelectorAll("pre");
+    buttons.forEach((btn) => btn.addEventListener("click", () => {
+      buttons.forEach((b, i) => { b.classList.toggle("on", b === btn); panes[i].classList.toggle("on", b === btn); });
+    }));
   });
 </script>
 </body>

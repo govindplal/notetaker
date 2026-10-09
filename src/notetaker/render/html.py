@@ -42,7 +42,8 @@ def link_terms(rendered: str, glossary: list[GlossaryItem], seen: set[str]) -> s
             m = pattern.search(part)
             if m:
                 slug = re.sub(r"\W+", "-", key).strip("-")
-                span = f'<span class="term" data-term="{slug}">{m.group(0)}</span>'
+                tip = html.escape(g.definition, quote=True)
+                span = f'<span class="term" data-term="{slug}" data-def="{tip}">{m.group(0)}</span>'
                 part = part[: m.start()] + span + part[m.end() :]
                 seen.add(key)
         parts[i] = part
@@ -79,6 +80,21 @@ def _render_block(b: Block, glossary: list[GlossaryItem], seen: set[str]) -> dic
     return d
 
 
+def group_code(blocks: list[dict]) -> list[dict]:
+    """Merge consecutive code blocks into one tabbed group (a single snippet shows no tab bar)."""
+    out: list[dict] = []
+    for b in blocks:
+        if b["type"] != "code":
+            out.append(b)
+            continue
+        tab = {"label": b.get("caption") or b.get("language") or "code", "code": b["code"]}
+        if out and out[-1]["type"] == "codegroup":
+            out[-1]["tabs"].append(tab)
+        else:
+            out.append({"type": "codegroup", "tabs": [tab], "caption": None})
+    return out
+
+
 def _slug(text: str, n: int) -> str:
     return f"s{n}-" + (re.sub(r"\W+", "-", text.lower()).strip("-") or "section")
 
@@ -113,7 +129,7 @@ def render_lecture(
                 "status": s.status,
                 "what_is_new": s.what_is_new,
                 "related": [_pointer(r, lecture_titles or {}) for r in s.related_ids],
-                "blocks": [_render_block(b, notes.glossary, seen) for b in s.blocks],
+                "blocks": group_code([_render_block(b, notes.glossary, seen) for b in s.blocks]),
             }
         )
     glossary = [

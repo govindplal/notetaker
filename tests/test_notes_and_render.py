@@ -78,13 +78,15 @@ def test_render_contains_all_parts_and_escapes_html():
     assert 'data-latex="x^2"' in out
     assert "<script>alert(1)</script>" not in out  # untrusted markup is escaped
     assert 'data-term="tokenization"' in out  # glossary term linked once
+    assert 'data-def="Text to ids."' in out  # hover definition
+    assert 'id="glossary"' in out and 'class="faq"' in out
     assert out.count('class="term"') == 1
     assert "Unused" not in out  # glossary terms that never appear are dropped
     assert "Left out" not in out and "Greetings" not in out  # audit list is JSON-only
     assert "On this page" in out and 'href="#s1-why-tokenize"' in out
     assert "builds on Lecture 1" in out
     assert "Text has to become" in out  # the lead paragraph
-    assert '<pre class="code"><code>ids = tok.encode(text)</code></pre>' in out
+    assert '<pre class="on"><code>ids = tok.encode(text)</code></pre>' in out
 
 
 def test_render_uses_one_light_palette_and_no_media():
@@ -104,3 +106,17 @@ def test_clean_mermaid_rewrites_list_like_labels():
     assert 'A["3 - Step"]' in out
     plain = "graph LR\n A --> B"
     assert render.clean_mermaid(plain) == plain
+
+
+def test_consecutive_code_blocks_become_tabs():
+    blocks = [
+        {"type": "text", "html": "<p>x</p>"},
+        {"type": "code", "code": "a = 1", "language": "python", "caption": "train.py"},
+        {"type": "code", "code": "b = 2", "language": "python", "caption": None},
+        {"type": "text", "html": "<p>y</p>"},
+        {"type": "code", "code": "c = 3", "language": "", "caption": None},
+    ]
+    out = render.group_code(blocks)
+    assert [b["type"] for b in out] == ["text", "codegroup", "text", "codegroup"]
+    assert [t["label"] for t in out[1]["tabs"]] == ["train.py", "python"]
+    assert out[3]["tabs"] == [{"label": "code", "code": "c = 3"}]
