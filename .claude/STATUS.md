@@ -3,17 +3,16 @@
 Updated: 2026-10-09
 
 ## Now
-- Milestone 1 (skeleton) done: uv project, SQLite schema, resumable job queue, 11 tests green, committed and pushed to private repo github.com/govindplal/notetaker (main).
-- Milestone 2 offline pipeline works end to end on the 4m33s sample (24 segments, 11 frames kept, notes written). Output checked by reading it; only the first half of the milestone (English-heavy clip) is covered.
-- Notes pipeline: structured JSON notes in the owner's style, ledger-based dedupe across lectures, HTML page copying the reference repo's feature-explainer layout (one fixed palette), figures drawn from data (flow/layers), nothing stored but notes + ledger + HTML. 46 tests pass. Checked live on the 4m33s RAG sample as lectures 2 and 3. See `docs/PLAN.md`.
-- Plan approved: `docs/PLAN.md` (stack, pipeline, milestones). Stack decided: Python + FastAPI/HTMX + SQLite, Chrome container over CDP, Gemini Flash for transcription and notes, free Oracle ARM VM.
-- Site probe done on 100xdevs.com AI/ML course (course 23, 33 videos): plain HLS from `transcoded-video.b-cdn.net`, no DRM. Direct HLS fetch with a plain request (no cookies/referer) returns 403 from the CDN, so the site restricts it; we did not work around that. Capture is on hold pending the owner's decision.
-- `model-router` mod is installed user-level at `~/.claude/skills/model-router` (edit that copy; tune rules in `hooks/classify.ts`; `/route [tier]` pins a tier).
+- Full pipeline works live on the owner's real 100xdevs account: `python -m notetaker add-course ...` then `run`. Recorder (2x, seeks to start) -> normalize to 1x -> chunked Gemini transcription -> slides -> structured notes in the owner's style -> HTML (lecture pages + index) -> all working files deleted. Verified on lecture 1 of the AI/ML course (first 3 min only via `--max-minutes 3`): all 5 stages done on the first attempt, nothing but notes/ledger/HTML left on disk. 54 tests pass.
+- Worker rules: strictly one lecture at a time in order (ledger depends on earlier lectures); "another device playing" waits 10 min without counting as a failure; expired sign-in pauses the course; a failed lecture blocks later ones until `retry`.
+- Notes: HTML copies the reference repo's feature-explainer layout (one fixed palette), figures are drawn from data (flow/layers), no frames/transcripts stored or shown. See `docs/PLAN.md`.
+- Recorder Chrome runs with `--remote-debugging-port=9222 --user-data-dir=data/chrome-profile` (owner signed in once). Closing all its tabs exits Chrome. Do not open the course on another device while recording (one player per account).
+- Repo: github.com/govindplal/notetaker (main). `model-router` mod is user-level at `~/.claude/skills/model-router`.
 
 ## Next
-- Course index page (links lectures, prev/next), then wire the recorder (milestone 3) into the pipeline and test Hindi speech. `.env` is not loaded by the CLI yet (export it manually).
-- Milestone 3 feasibility (2x in-browser recording) verified on lecture 1: 20 wall-s gave 37.8 media-s and 3.6 MB of audio+video via MediaRecorder on captureStream(). Player allows one playing device per account; the worker must pause on 'Video already playing'.
-- Milestone 3 (capture): direct download is blocked (403). Do not spoof referer/cookies. Options for the owner: real-time recording of normal playback, or manual video/slide upload into the pipeline.
+- Full run of the real AI/ML course (33 lectures): needs the lecture list (title + URL per lecture) in a TSV; automatic discovery from the course page is not built.
+- Test Hindi-heavy speech and a full-length (1-2 h) lecture; check Gemini free-tier limits over a long run.
+- Hosting: Docker image with Chrome + Xvfb + noVNC for the one-time sign-in, web UI to browse notes, deploy to the VM.
 
 ## Open questions / blocked on the user
 - Do the 100xdevs course terms allow downloading lecture streams? Blocks the capture milestone (3).
