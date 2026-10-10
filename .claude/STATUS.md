@@ -12,6 +12,9 @@ Updated: 2026-10-10. Long version of everything (requirements, decisions, mistak
 ## Waiting on the owner
 - Gemini free tier allows about 20 requests/day/model and today's quota is used up (resets about 20 h after 2026-10-09 evening). Owner must choose: start now on free (slow, processing waits for quota), wait for reset, or paid Gemini (about $7-10). Do not start the 30 h full-course run until they say so.
 
+## Parked
+- Public/student version is designed, not built: private repo github.com/govindplal/notetaker-public (`docs/ARCHITECTURE.md`). Resume it only after this personal notetaker is complete.
+
 ## Next
 - Run the full AI/ML course at 2x (lecture 1 first; it only has a 3-minute test), then show the owner lecture 1's notes after checking the page is current.
 - Test a full-length lecture and Hindi-heavy speech; live kill/restart test of the continuous capture.
