@@ -1,20 +1,27 @@
 """Write structured notes for one lecture, aware of what earlier lectures already covered."""
 
 from pathlib import Path
+from typing import Protocol
 
-from google import genai
-from google.genai import types
-
-from notetaker import gemini
 from notetaker.notes.model import Concept, LectureNotes
 
 STYLE = (Path(__file__).parent / "style.md").read_text(encoding="utf-8")
 MAX_FRAMES = 60
-MAX_OUTPUT_TOKENS = 24000
+MAX_ATTEMPTS = 3
+
+
+class NoteWriter(Protocol):
+    """Anything that turns a finished prompt (plus frame image files) into notes JSON."""
+
+    def generate(self, prompt: str, frames: list[Path], schema: dict) -> dict:
+        """Return a dict matching `schema`. Raises on failure (see notes/claude_writer.py)."""
+        ...
+
 
 PROMPT = """You write study notes for a student taking an online course ("{course}").
 You are given the full transcript of one lecture (English with some romanised Hindi, with [mm:ss]
-timestamps), slide/board frames from it (each preceded by its timestamp), and the LEDGER: the list
+timestamps), slide/board frames from it (image files listed at the end, each with its timestamp; view
+them with your Read tool), and the LEDGER: the list
 of topics earlier lectures in this course already taught.
 
 {style}
@@ -78,8 +85,19 @@ model->User "answer".
 {ledger}
 
 ## Lecture {idx}: {title}
-Transcript:
+{continuation}Transcript:
 {transcript}
+"""
+
+CONTINUATION = """This lecture is being noted in parts. Notes for its first part already exist, covering
+the sections below (headings and concepts only). The transcript you are given starts where those
+notes stopped. Write ONLY what this new part adds: new sections, glossary terms and left_out lines.
+Do not repeat or rephrase the existing sections. Their `lead` will not be used, so write any short
+text for it.
+
+EXISTING SECTIONS:
+{existing}
+
 """
 
 
@@ -136,8 +154,27 @@ def ledger_entries(notes: LectureNotes, lecture_idx: int) -> list[Concept]:
     ]
 
 
+def existing_sections(notes: LectureNotes) -> str:
+    """Headings and concepts only: enough for the model to avoid repeating them."""
+    return "\n".join(f"- {s.heading} ({s.concept})" for s in notes.sections) or "(none yet)"
+
+
+def merge_notes(earlier: LectureNotes, new: LectureNotes) -> LectureNotes:
+    """Append a later part's notes to the notes already written for the lecture."""
+    glossary = {g.term.lower(): g for g in earlier.glossary}
+    for g in new.glossary:
+        glossary.setdefault(g.term.lower(), g)
+    return earlier.model_copy(
+        update={
+            "sections": earlier.sections + new.sections,
+            "glossary": list(glossary.values()),
+            "left_out": earlier.left_out + new.left_out,
+        }
+    )
+
+
 def write_lecture_notes(
-    c: genai.Client,
+    writer: NoteWriter,
     *,
     course: str,
     lecture_idx: int,
@@ -145,39 +182,37 @@ def write_lecture_notes(
     segments: list[dict],
     frames: list[tuple[float, Path]],
     ledger: list[Concept],
+    earlier: LectureNotes | None = None,
 ) -> LectureNotes:
+    """Notes for one lecture, or for the part of it after `earlier`'s notes.
+
+    When `earlier` is given, the returned notes hold only the new part's sections (the caller merges
+    them with merge_notes). The transcript should then be only the segments after the earlier part.
+    """
     transcript = "\n".join(f"[{_mmss(s['start'])}] {s['text']}" for s in segments)
     prompt = PROMPT.format(
         course=course,
         style=STYLE,
         ledger=format_ledger(ledger),
+        continuation=(CONTINUATION.format(existing=existing_sections(earlier)) if earlier else ""),
         idx=lecture_idx,
         title=title,
         transcript=transcript,
     )
-    contents: list = []
-    for ts, path in pick_frames(frames):
-        contents.append(f"Frame at {_mmss(ts)}:")
-        contents.append(types.Part.from_bytes(data=path.read_bytes(), mime_type="image/jpeg"))
-    contents.append(prompt)
+    picked = pick_frames(frames)
+    if picked:
+        listing = "\n".join(f"Frame at {_mmss(ts)}: {p}" for ts, p in picked)
+        prompt += f"\n## Frames (image files)\n{listing}\n"
+    schema = LectureNotes.model_json_schema()
     last: Exception | None = None
-    for attempt in range(3):
-        resp = gemini.generate(
-            c,
-            contents,
-            types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=LectureNotes,
-                temperature=0.2 + 0.2 * attempt,
-                max_output_tokens=MAX_OUTPUT_TOKENS,
-            ),
-        )
+    for _attempt in range(MAX_ATTEMPTS):
         try:
-            notes = LectureNotes.model_validate_json(resp.text)
+            data = writer.generate(prompt, [p for _ts, p in picked], schema)
+            notes = LectureNotes.model_validate(data)
             bad = degenerate_text(notes)
             if bad is None:
                 return notes
             last = ValueError(bad)
-        except ValueError as e:  # truncated or malformed JSON, or a missing figure: try again
+        except ValueError as e:  # malformed JSON, schema mismatch or a missing figure: try again
             last = e
-    raise RuntimeError(f"Gemini did not return valid notes after 3 attempts: {last}")
+    raise RuntimeError(f"no valid notes after {MAX_ATTEMPTS} attempts: {last}")

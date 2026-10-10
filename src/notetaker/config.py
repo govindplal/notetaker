@@ -6,10 +6,11 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Config:
     data_dir: Path
-    gemini_api_key: str | None
     cdp_url: str = "http://127.0.0.1:9222"  # the recorder Chrome, signed in once
     speed: float = 2.0  # playback speed while recording
     max_media_seconds: float | None = None  # cap per lecture; for short test recordings only
+    whisper_model: str = "large-v3-turbo"
+    claude_model: str | None = None  # None = the account's default model
 
     @property
     def db_path(self) -> Path:
@@ -17,22 +18,33 @@ class Config:
 
     @property
     def work_dir(self) -> Path:
-        """Working files (recording, audio, transcript, frames). Deleted once a lecture's notes exist."""
+        """Working files (recording, audio, transcript, frames). Deleted once a lecture is finished."""
         return self.data_dir / "work"
 
     @property
     def notes_dir(self) -> Path:
         return self.data_dir / "notes"
 
+    @property
+    def stop_path(self) -> Path:
+        """Creating this file asks the worker to finish the current lecture part and exit."""
+        return self.data_dir / "STOP"
+
+    @property
+    def lock_path(self) -> Path:
+        """Held open by the running worker, so a second worker cannot start."""
+        return self.data_dir / "worker.lock"
+
     @classmethod
     def from_env(cls) -> "Config":
         cap = os.environ.get("NOTETAKER_MAX_MEDIA_S")
         return cls(
             data_dir=Path(os.environ.get("NOTETAKER_DATA_DIR", "data")),
-            gemini_api_key=os.environ.get("GEMINI_API_KEY") or None,
             cdp_url=os.environ.get("NOTETAKER_CDP_URL", "http://127.0.0.1:9222"),
             speed=float(os.environ.get("NOTETAKER_SPEED", "2.0")),
             max_media_seconds=float(cap) if cap else None,
+            whisper_model=os.environ.get("NOTETAKER_WHISPER_MODEL", "large-v3-turbo"),
+            claude_model=os.environ.get("NOTETAKER_CLAUDE_MODEL") or None,
         )
 
 

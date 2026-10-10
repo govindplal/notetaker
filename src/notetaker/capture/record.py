@@ -6,7 +6,7 @@ start playback), set the player to `speed`x, and record `video.captureStream()` 
 MediaRecorder inside the page. Chunks are streamed to a .webm file on our side.
 
 Timeline note: at speed S the recording is S times shorter than the lecture. Call
-`media.extract_audio(path, out, S)` to slow the audio back to natural pace before transcription.
+`asr.decode_recording(path, S, seconds)` to slow the audio back to natural pace before transcription.
 """
 
 import base64
@@ -129,12 +129,14 @@ def record_lecture(
     max_media_seconds: float | None = None,
     start_at: float = 0.0,
     on_progress: Callable[[float, float], None] | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> Recording:
     """Record one lecture from `start_at` seconds (the start by default).
 
     The player resumes from wherever it was last stopped, so we always seek first.
     `max_media_seconds` stops early (used for short test recordings). `on_progress(t, duration)` is
     called every couple of seconds with the lecture time reached, so the caller can checkpoint it.
+    `should_stop()` is polled the same way; once it is true the recording is stopped and saved.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     started = time.time()
@@ -183,6 +185,7 @@ def record_lecture(
                 last_t, last_move = -1.0, time.time()
                 end_t = start_t
 
+                stopping = False
                 while True:
                     st = page.evaluate(STATUS_JS)
                     if on_progress is not None and st["t"] is not None:
@@ -192,7 +195,10 @@ def record_lecture(
                     if st["stopped"] and st["pending"] == 0:
                         end_t = float(st["stopT"] if st["stopT"] is not None else st["t"] or end_t)
                         break
-                    if st["t"] is not None and st["t"] - start_t >= limit_media - 0.5:
+                    asked = should_stop is not None and should_stop()
+                    if asked and not stopping:
+                        stopping = True
+                    if stopping or (st["t"] is not None and st["t"] - start_t >= limit_media - 0.5):
                         page.evaluate(
                             "window.__nt.rec.state !== 'inactive' && window.__nt.rec.stop()"
                         )

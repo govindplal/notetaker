@@ -88,15 +88,20 @@ def save_notes(
     notes: LectureNotes,
     concepts: list[Concept],
     model: str,
+    covered_until: float,
 ) -> None:
-    """Store the notes and replace this lecture's ledger rows, in one transaction."""
+    """Store the notes and replace this lecture's ledger rows, in one transaction.
+
+    `covered_until` is the lecture time (seconds) the notes reach. A later part of the lecture is
+    noted from that point on and merged in.
+    """
     conn.execute("BEGIN IMMEDIATE")
     try:
         conn.execute(
-            "INSERT INTO notes (lecture_id, json, model) VALUES (?, ?, ?) "
+            "INSERT INTO notes (lecture_id, json, model, covered_until) VALUES (?, ?, ?, ?) "
             "ON CONFLICT(lecture_id) DO UPDATE SET json = excluded.json, model = excluded.model, "
-            "created_at = CURRENT_TIMESTAMP",
-            (lecture_id, notes.model_dump_json(), model),
+            "covered_until = excluded.covered_until, created_at = CURRENT_TIMESTAMP",
+            (lecture_id, notes.model_dump_json(), model, covered_until),
         )
         conn.execute(
             "DELETE FROM concepts WHERE course_id = ? AND lecture_idx = ?", (course_id, lecture_idx)
@@ -111,6 +116,18 @@ def save_notes(
     except BaseException:
         conn.execute("ROLLBACK")
         raise
+
+
+def stored_notes(conn: sqlite3.Connection, lecture_id: int) -> LectureNotes | None:
+    row = conn.execute("SELECT json FROM notes WHERE lecture_id = ?", (lecture_id,)).fetchone()
+    return LectureNotes.model_validate_json(row["json"]) if row else None
+
+
+def covered_until(conn: sqlite3.Connection, lecture_id: int) -> float:
+    row = conn.execute(
+        "SELECT covered_until FROM notes WHERE lecture_id = ?", (lecture_id,)
+    ).fetchone()
+    return float(row["covered_until"]) if row else 0.0
 
 
 def notes_for_course(

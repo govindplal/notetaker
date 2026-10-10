@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notetaker</title>
+<script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+<style>
+  :root { --bg:#fbfaf7; --fg:#22211f; --muted:#6b6862; --line:#e4e1da; --ok:#2f7d4f; --warn:#a15c00; --bad:#b03a2e; --btn:#2d4a6b; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#1b1c1e; --fg:#e8e6e1; --muted:#9b978f; --line:#34363a; --ok:#6fbf8a; --warn:#e0a04a; --bad:#e07a6e; --btn:#5b7fa6; }
+  }
+  :root[data-theme="dark"] { --bg:#1b1c1e; --fg:#e8e6e1; --muted:#9b978f; --line:#34363a; --ok:#6fbf8a; --warn:#e0a04a; --bad:#e07a6e; --btn:#5b7fa6; }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 16px; }
+  main { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 12px; }
+  h2 { font-size: 17px; margin: 24px 0 8px; }
+  button { background: var(--btn); color: #fff; border: 0; border-radius: 6px; padding: 7px 14px; font: inherit; cursor: pointer; margin: 2px 4px 2px 0; }
+  button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: default; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .pill { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 13px; border: 1px solid var(--line); }
+  .done { color: var(--ok); } .pending { color: var(--muted); } .failed { color: var(--bad); } .running { color: var(--warn); }
+  .box { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+  a { color: var(--btn); }
+  @media (max-width: 640px) { td, th { padding: 6px 4px; font-size: 14px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Notetaker</h1>
+  <div id="panel" hx-get="/panel" hx-trigger="every 5s" hx-swap="innerHTML">
+    {% include "control_panel.html" %}
+  </div>
+  <p class="muted">Runs only on this computer. Notes are read at
+    <a href="/notes/">/notes/</a>.</p>
+</main>
+</body>
+</html>

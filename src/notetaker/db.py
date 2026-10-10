@@ -58,4 +58,8 @@ def connect(path: Path | str) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
+    # Added after the first release: how far into the lecture the stored notes reach.
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(notes)")}
+    if "covered_until" not in cols:
+        conn.execute("ALTER TABLE notes ADD COLUMN covered_until REAL NOT NULL DEFAULT 0")
     return conn

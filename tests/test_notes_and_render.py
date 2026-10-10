@@ -2,7 +2,6 @@ from pathlib import Path
 
 from notetaker.notes import writer
 from notetaker.notes.model import Block, Concept, GlossaryItem, LectureNotes, Section
-from notetaker.offline import load_ledger, save_ledger
 from notetaker.render import html as render
 
 
@@ -63,14 +62,6 @@ def test_pick_frames_caps_and_spreads():
     assert len(picked) == 50
     assert picked[0][0] == 0.0 and picked[-1][0] > 150
     assert writer.pick_frames(frames[:10], limit=50) == frames[:10]
-
-
-def test_ledger_roundtrip(tmp_path):
-    path = tmp_path / "ledger.json"
-    assert load_ledger(path) == []
-    entries = writer.ledger_entries(_notes(), 1)
-    save_ledger(path, entries)
-    assert load_ledger(path) == entries
 
 
 def test_render_contains_all_parts_and_escapes_html():

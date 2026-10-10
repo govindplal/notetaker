@@ -17,7 +17,6 @@ def test_connect_twice_is_safe(tmp_path):
 
 def test_config_reads_env(monkeypatch, tmp_path):
     monkeypatch.setenv("NOTETAKER_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("GEMINI_API_KEY", "")
     cfg = Config.from_env()
     assert cfg.db_path == tmp_path / "notetaker.db"
-    assert cfg.gemini_api_key is None
+    assert cfg.whisper_model == "large-v3-turbo"

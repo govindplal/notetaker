@@ -10,7 +10,17 @@ STALE_RUNNING_S = 3600
 
 
 def enqueue_lecture(conn: sqlite3.Connection, lecture_id: int) -> None:
-    """Queue the first stage of a lecture. Safe to call twice."""
+    """Queue the first stage of a lecture. Safe to call twice.
+
+    A lecture that was worked on in an earlier run (stopped part-way) still has that run's finished
+    jobs. They are cleared so every stage can run again, each carrying on from its saved progress.
+    """
+    in_flight = conn.execute(
+        "SELECT 1 FROM jobs WHERE lecture_id = ? AND state IN ('queued', 'running', 'failed')",
+        (lecture_id,),
+    ).fetchone()
+    if not in_flight:
+        conn.execute("DELETE FROM jobs WHERE lecture_id = ? AND state = 'done'", (lecture_id,))
     conn.execute(
         "INSERT OR IGNORE INTO jobs (lecture_id, stage) VALUES (?, ?)",
         (lecture_id, STAGES[0]),
@@ -109,3 +119,19 @@ def defer(
         "WHERE id = ?",
         (reason, now + delay_s, job_id),
     )
+
+
+def finish_partial(conn: sqlite3.Connection, job_id: int) -> None:
+    """The notes stage ran for a lecture that is not finished yet: the lecture waits for the next run.
+
+    Its working files stay, so the next run carries on from where it stopped instead of cleaning up.
+    """
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        job = conn.execute("SELECT lecture_id FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        conn.execute("UPDATE jobs SET state = 'done', error = NULL WHERE id = ?", (job_id,))
+        conn.execute("UPDATE lectures SET status = 'pending' WHERE id = ?", (job["lecture_id"],))
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise

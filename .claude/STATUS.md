@@ -1,26 +1,26 @@
 # Status (rewrite at every checkpoint; snapshot, not a log; under ~40 lines)
 
-Updated: 2026-10-10. Long version of everything (requirements, decisions, mistakes): `docs/HANDOFF.md`. Read it first in a new session.
+Updated: 2026-10-11. Long version: `docs/HANDOFF.md` (partly stale: still describes Gemini). `CLAUDE.md` is current.
 
 ## Now
-- Pipeline works live on the owner's real 100xdevs account: recorder (2x, continuous, saves on any stop, resumes at the exact end of what was saved) -> audio slowed to 1x -> chunked Gemini transcription -> frames -> structured notes in the owner's style with ledger dedupe -> HTML (lecture pages + index) -> working files deleted. Latest commit `293f8de`, 69 tests pass, lint clean.
-- Worker: one lecture at a time in order; device busy waits 10 min; expired sign-in pauses the course; Gemini daily quota waits for reset; failed lecture blocks later ones until `retry`.
-- Notes never store or show transcripts/frames; HTML copies the reference repo's palette (one fixed theme); figures drawn from data.
-- Recorder Chrome: `--remote-debugging-port=9222 --user-data-dir=data/chrome-profile` (owner signed in once). Do not open the course on another device while recording.
-- Data (git-ignored): `data/notetaker.db` (course 1, 33 lectures all pending), `data/lectures-ai-ml.tsv`, `data/chrome-profile/`. The Gemini key is in the repo-root `.env`.
+- Runs on the owner's laptop (GTX 1650 Ti 4 GB, 16 GB RAM). Local faster-whisper (large-v3-turbo; GPU 0.32x real time, CPU 0.71x) + `claude -p` notes. Gemini and the Hugging Face deploy spike are deleted. 95 tests pass, lint clean.
+- A lecture is worked in parts: Stop saves the recorded part, notes are written for it, lecture returns to `pending`; next Start continues and merges new notes (`notes.covered_until`). Claude usage limit stops the worker. Control page: `uv run python -m notetaker ui` -> http://127.0.0.1:8765 (Start/Stop/Retry/Resume/sign-in button, notes links). `/course` command prints where things stand.
+- Verified live (separate DB `data/e2e-run`, cap 150 s): stop mid-lecture, resume, lecture finished and cleaned up, HTML exported; a real two-part Claude notes write merged correctly (sections from both parts, no repeats, a frame passed without error). Two bugs found live and fixed with tests (partial lecture not re-queued; Whisper end overrun left transcript incomplete).
+- Real course data (git-ignored): `data/notetaker.db` (course 1, 33 lectures, all pending, untouched), `data/lectures-ai-ml.tsv`, `data/chrome-profile/`.
 
-## Waiting on the owner
-- Gemini free tier allows about 20 requests/day/model and today's quota is used up (resets about 20 h after 2026-10-09 evening). Owner must choose: start now on free (slow, processing waits for quota), wait for reset, or paid Gemini (about $7-10). Do not start the 30 h full-course run until they say so.
-
-## Parked
-- Public/student version is designed, not built: private repo github.com/govindplal/notetaker-public (`docs/ARCHITECTURE.md`). Resume it only after this personal notetaker is complete.
+## Not verified yet
+- Hindi/English quality of Whisper (`language=None`; whole-lecture language guess may mangle one language). Test on a Hindi-heavy lecture first.
+- That Claude actually uses the slide frames (Read tool); real usage-limit message text (`_looks_like_limit` is a guess); a full-length lecture end to end; the control page opened in a browser (only TestClient-tested); the recorder's seek-to-0 failed once ("seek landed at 185s").
 
 ## Next
-- Run the full AI/ML course at 2x (lecture 1 first; it only has a 3-minute test), then show the owner lecture 1's notes after checking the page is current.
-- Test a full-length lecture and Hindi-heavy speech; live kill/restart test of the continuous capture.
-- Hosting: Docker with Chrome + Xvfb + noVNC for sign-in, FastAPI web UI, deploy to a free VM (`docs/PLAN.md`).
+1. Hindi-heavy test: pick a lecture, run a few minutes, read the transcript and notes. Fix language handling if needed.
+2. Open the control page, press Start on a short capped run, check it looks right.
+3. Only when the owner says: start the real course. Expect several Starts because of Claude plan limits (a trivial call cost about $0.17 of cached context).
+
+## Parked
+- Public/student version: private repo github.com/govindplal/notetaker-public (`docs/ARCHITECTURE.md`). After the personal one is complete.
 
 ## Learned this project
-- Mods are only auto-loaded from `.claude/skills/<name>` (project) or `~/.claude/skills/<name>`.
-- In Git Bash, `claude -p "/cmd"` needs `MSYS_NO_PATHCONV=1`.
-- The 100xdevs account shows ~128 videos across courses; AI/ML has 33.
+- Mods only auto-load from `.claude/skills/<name>`. In Git Bash, `claude -p "/cmd"` needs `MSYS_NO_PATHCONV=1`. AI/ML course has 33 lectures.
+- Compound `rm` commands get denied; single simple `rm` calls work. Run long jobs with the Bash tool's `run_in_background`, not `nohup &`.
+- ffmpeg is not on the Bash PATH (see CLAUDE.md gotchas).

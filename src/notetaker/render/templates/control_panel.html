@@ -1,0 +1,38 @@
+<div class="box">
+  <strong>Worker:</strong> {{ state.label }}
+  {% if state.current %}<div>Now: {{ state.current }}</div>{% endif %}
+  {% if state.usage_limit %}
+    <div class="failed">Claude usage is used up. Press Start after it resets: {{ state.usage_limit }}</div>
+  {% elif state.waiting %}
+    <div class="running">Waiting{% if state.waiting_until %} until {{ state.waiting_until }}{% endif %}: {{ state.waiting }}</div>
+  {% endif %}
+  <div style="margin-top:8px">
+    <button hx-post="/worker/start" hx-target="#panel" {% if state.running %}disabled{% endif %}>Start</button>
+    <button class="secondary" hx-post="/worker/stop" hx-target="#panel" {% if not state.running %}disabled{% endif %}>Stop</button>
+    <button class="secondary" hx-post="/signin" hx-target="#panel">Open recorder browser (sign in)</button>
+  </div>
+  {% if message %}<div class="muted" style="margin-top:8px">{{ message }}</div>{% endif %}
+</div>
+
+{% for c in courses %}
+<h2>{{ c.title }} <span class="pill">{{ c.status }}</span>
+  <span class="muted">{{ c.done }} of {{ c.total }} lectures done</span></h2>
+{% if c.status != 'active' %}
+  <button class="secondary" hx-post="/course/{{ c.id }}/resume" hx-target="#panel">Resume course</button>
+{% endif %}
+<table>
+  <tr><th>#</th><th>Lecture</th><th>Status</th><th>Notes</th><th></th></tr>
+  {% for l in c.lectures %}
+  <tr>
+    <td>{{ l.idx }}</td>
+    <td>{{ l.title }}{% if l.detail %}<div class="muted">{{ l.detail }}</div>{% endif %}</td>
+    <td class="{{ l.status }}">{{ l.status }}</td>
+    <td>{% if l.page %}<a href="{{ l.page }}" target="_blank">read</a>{% else %}<span class="muted">none yet</span>{% endif %}</td>
+    <td>{% if l.status == 'failed' %}<button class="secondary" hx-post="/lecture/{{ l.id }}/retry" hx-target="#panel">Retry</button>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+<div class="muted" style="margin-top:6px"><a href="{{ c.index }}" target="_blank">Course index</a></div>
+{% else %}
+<p class="muted">No courses yet. Add one with <code>python -m notetaker add-course</code>.</p>
+{% endfor %}
