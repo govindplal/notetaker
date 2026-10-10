@@ -124,3 +124,27 @@ def notes_for_course(
         row = conn.execute("SELECT json FROM notes WHERE lecture_id = ?", (lec["id"],)).fetchone()
         out.append((lec, LectureNotes.model_validate_json(row["json"]) if row else None))
     return out
+
+
+def reset_from(conn: sqlite3.Connection, course_id: int, from_idx: int) -> int:
+    """Forget lecture `from_idx` and every later one so they are processed again, in order."""
+    ids = [
+        r["id"]
+        for r in conn.execute(
+            "SELECT id FROM lectures WHERE course_id = ? AND idx >= ?", (course_id, from_idx)
+        )
+    ]
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        for lid in ids:
+            conn.execute("DELETE FROM jobs WHERE lecture_id = ?", (lid,))
+            conn.execute("DELETE FROM notes WHERE lecture_id = ?", (lid,))
+            conn.execute("UPDATE lectures SET status = 'pending' WHERE id = ?", (lid,))
+        conn.execute(
+            "DELETE FROM concepts WHERE course_id = ? AND lecture_idx >= ?", (course_id, from_idx)
+        )
+        conn.execute("COMMIT")
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    return len(ids)

@@ -61,18 +61,24 @@ def work(
     stages: dict[str, Callable[[Ctx], None]] = STAGE_FUNCS,
 ) -> None:
     """Process jobs until none are ready (or forever, polling, when stop_when_idle is False)."""
-    jobs.requeue_stale(conn)
+    # One worker runs at a time, so anything still marked running is left over from a crash.
+    conn.execute("UPDATE jobs SET state = 'queued' WHERE state = 'running'")
+    told = False
     while True:
         advance(conn)
         job = jobs.claim_next(conn)
         if job is None:
             waiting = conn.execute("SELECT COUNT(*) FROM jobs WHERE state = 'queued'").fetchone()[0]
-            if stop_when_idle:
-                if waiting:
-                    log(f"{waiting} job(s) are waiting to retry (device busy or sign-in needed).")
+            if waiting and not told:
+                log(
+                    f"{waiting} job(s) waiting to retry (another device playing, or sign-in needed)."
+                )
+                told = True
+            if not waiting and stop_when_idle:
                 return
             time.sleep(idle_s)
             continue
+        told = False
         lec = store.lecture(conn, job["lecture_id"])
         log(f"lecture {lec['idx']} ({lec['title']}): {job['stage']} ...")
         outcome = run_job(conn, cfg, job, stages)

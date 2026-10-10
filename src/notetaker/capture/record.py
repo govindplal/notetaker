@@ -6,7 +6,7 @@ start playback), set the player to `speed`x, and record `video.captureStream()` 
 MediaRecorder inside the page. Chunks are streamed to a .webm file on our side.
 
 Timeline note: at speed S the recording is S times shorter than the lecture. Call
-`media.normalize_speed(path, S)` to get a 1x file before transcription.
+`media.extract_audio(path, out, S)` to slow the audio back to natural pace before transcription.
 """
 
 import base64

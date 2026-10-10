@@ -141,10 +141,14 @@ def test_export_writes_pages_index_and_no_media(env, tmp_path):
     assert "Tokens" in page and "<img" not in page and "greeting" not in page
 
 
-def test_chunked_transcription_keeps_one_timeline_and_cleanup_removes_everything(env, monkeypatch):
+def _ctx(env):
     cfg, conn, cid = env
     lec = store.lecture(conn, 1)
-    ctx = pipeline.Ctx(conn=conn, cfg=cfg, lecture=lec, course=store.course(conn, cid))
+    return pipeline.Ctx(conn=conn, cfg=cfg, lecture=lec, course=store.course(conn, cid))
+
+
+def test_chunked_transcription_slows_audio_and_keeps_one_timeline(env, monkeypatch):
+    ctx = _ctx(env)
     (ctx.work / "recording.webm").write_bytes(b"x")
     (ctx.work / "capture.json").write_text(json.dumps({"speed": 2.0, "lecture_seconds": 1200}))
     chunks = []
@@ -152,12 +156,14 @@ def test_chunked_transcription_keeps_one_timeline_and_cleanup_removes_everything
         p = ctx.work / f"c{i}.mp3"
         p.write_bytes(b"x")
         chunks.append((i * 600.0, p))
-    monkeypatch.setattr(
-        pipeline.media, "normalize_speed", lambda rec, sp, out: (out.write_bytes(b"v"), out)[1]
-    )
-    monkeypatch.setattr(
-        pipeline.media, "extract_audio", lambda v, out: (out.write_bytes(b"a"), out)[1]
-    )
+    seen = {}
+
+    def fake_extract(video, out, speed=None):
+        seen["video"], seen["speed"] = video.name, speed
+        out.write_bytes(b"a")
+        return out
+
+    monkeypatch.setattr(pipeline.media, "extract_audio", fake_extract)
     monkeypatch.setattr(pipeline.media, "split_audio", lambda a, d: chunks)
     monkeypatch.setattr(
         pipeline.gemini,
@@ -166,8 +172,75 @@ def test_chunked_transcription_keeps_one_timeline_and_cleanup_removes_everything
     )
     ctx._client = object()
     pipeline.transcribe(ctx)
+    assert seen == {
+        "video": "recording.webm",
+        "speed": 2.0,
+    }  # audio only, slowed back; no video re-encode
     segs = json.loads((ctx.work / "transcript.json").read_text(encoding="utf-8"))
     assert [s["start"] for s in segs] == [5.0, 605.0]  # second chunk is offset by 600 s
-    assert not (ctx.work / "recording.webm").exists() and not (ctx.work / "audio.mp3").exists()
+    assert not (ctx.work / "audio.mp3").exists()
+    assert (ctx.work / "recording.webm").exists()  # still needed for the frames stage
+
+
+def test_frames_are_sampled_from_the_recording_with_lecture_time_stamps(env, monkeypatch):
+    ctx = _ctx(env)
+    rec = ctx.work / "recording.webm"
+    rec.write_bytes(b"x")
+    (ctx.work / "capture.json").write_text(json.dumps({"speed": 4.0, "lecture_seconds": 100}))
+    called = {}
+
+    def fake_sample(video, out_dir, every_s):
+        called["video"], called["every_s"] = video.name, every_s
+        out_dir.mkdir(parents=True, exist_ok=True)
+        files = []
+        for i in range(3):
+            f = out_dir / f"raw_{i}.jpg"
+            f.write_bytes(b"j")
+            files.append((i * every_s, f))  # timestamps in recorded time, as ffmpeg gives them
+        return files
+
+    monkeypatch.setattr(pipeline.media, "sample_frames", fake_sample)
+    monkeypatch.setattr(
+        pipeline.media,
+        "dedupe_frames",
+        lambda raw: [pipeline.media.Frame(ts=ts, path=p) for ts, p in raw[::2]],
+    )
+    pipeline.frames(ctx)
+    assert called == {"video": "recording.webm", "every_s": 0.5}  # 2 s of lecture = 0.5 s at 4x
+    kept = json.loads((ctx.work / "frames.json").read_text(encoding="utf-8"))
+    assert kept == [[0.0, "raw_0.jpg"], [4.0, "raw_2.jpg"]]  # lecture seconds: 0 and 2 * 2.0
+    assert not (ctx.work / "frames" / "raw_1.jpg").exists()  # near-duplicates are deleted
+    assert not rec.exists()
+
+
+def test_cleanup_removes_everything(env):
+    ctx = _ctx(env)
+    (ctx.work / "transcript.json").write_text("[]")
     pipeline.cleanup(ctx)
-    assert not Path(cfg.work_dir / f"lecture-{lec['id']}").exists()
+    assert not Path(ctx.cfg.work_dir / f"lecture-{ctx.lecture['id']}").exists()
+
+
+def test_jobs_left_running_by_a_crash_are_resumed(env):
+    cfg, conn, _cid = env
+    worker.advance(conn)
+    jobs.claim_next(conn)  # worker "dies" while the job is running
+    calls = []
+    worker.work(conn, cfg, log=lambda _m: None, stages=_recording_stages(calls))
+    assert (1, "capture") in calls
+    assert conn.execute("SELECT status FROM lectures WHERE idx = 2").fetchone()[0] == "done"
+
+
+def test_redo_resets_the_lecture_and_everything_after_it(env):
+    _cfg, conn, cid = env
+    for lec in conn.execute("SELECT * FROM lectures ORDER BY idx").fetchall():
+        n = _notes(heading=f"T{lec['idx']}")
+        store.save_notes(conn, cid, lec["id"], lec["idx"], n, ledger_entries(n, lec["idx"]), "m")
+        conn.execute("UPDATE lectures SET status = 'done' WHERE id = ?", (lec["id"],))
+        jobs.enqueue_lecture(conn, lec["id"])
+    assert store.reset_from(conn, cid, 2) == 1  # only lecture 2 is at or after #2
+    assert conn.execute("SELECT status FROM lectures WHERE idx = 1").fetchone()[0] == "done"
+    assert conn.execute("SELECT status FROM lectures WHERE idx = 2").fetchone()[0] == "pending"
+    assert [c.title for c in store.ledger(conn, cid, 3)] == ["T1"]  # lecture 2's concepts are gone
+    assert conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0] == 1
+    assert store.reset_from(conn, cid, 1) == 2
+    assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0

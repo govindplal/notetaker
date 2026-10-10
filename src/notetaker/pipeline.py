@@ -56,13 +56,9 @@ def capture(ctx: Ctx) -> None:
 
 
 def transcribe(ctx: Ctx) -> None:
-    """Turn the sped-up recording back into a 1x file, then transcribe its audio in chunks."""
+    """Slow the recording's audio back to natural pace, then transcribe it in chunks."""
     cap = json.loads((ctx.work / "capture.json").read_text(encoding="utf-8"))
-    video = media.normalize_speed(
-        ctx.work / "recording.webm", cap["speed"], ctx.work / "lecture.mp4"
-    )
-    (ctx.work / "recording.webm").unlink(missing_ok=True)  # the big file is no longer needed
-    audio = media.extract_audio(video, ctx.work / "audio.mp3")
+    audio = media.extract_audio(ctx.work / "recording.webm", ctx.work / "audio.mp3", cap["speed"])
     segments: list[dict] = []
     for offset, chunk in media.split_audio(audio, ctx.work / "audio_chunks"):
         for seg in gemini.transcribe(ctx.client, chunk):
@@ -74,9 +70,21 @@ def transcribe(ctx: Ctx) -> None:
     )
 
 
+FRAME_EVERY_LECTURE_S = 2.0  # one candidate frame per two seconds of lecture
+
+
 def frames(ctx: Ctx) -> None:
-    """Sample frames, keep one per distinct slide or board state."""
-    raw = media.sample_frames(ctx.work / "lecture.mp4", ctx.work / "frames")
+    """Sample frames from the recording, keep one per distinct slide or board state.
+
+    The recording is sped up, so frames are sampled every 2/speed recorded seconds and their
+    timestamps are scaled back to lecture time.
+    """
+    cap = json.loads((ctx.work / "capture.json").read_text(encoding="utf-8"))
+    speed = cap["speed"]
+    raw = media.sample_frames(
+        ctx.work / "recording.webm", ctx.work / "frames", every_s=FRAME_EVERY_LECTURE_S / speed
+    )
+    raw = [(ts * speed, path) for ts, path in raw]
     kept = media.dedupe_frames(raw)
     keep_paths = {f.path for f in kept}
     for _ts, path in raw:
@@ -85,7 +93,7 @@ def frames(ctx: Ctx) -> None:
     (ctx.work / "frames.json").write_text(
         json.dumps([[f.ts, f.path.name] for f in kept]), encoding="utf-8"
     )
-    (ctx.work / "lecture.mp4").unlink(missing_ok=True)
+    (ctx.work / "recording.webm").unlink(missing_ok=True)  # the big file is no longer needed
 
 
 def notes(ctx: Ctx) -> None:

@@ -61,6 +61,11 @@ def main(argv: list[str] | None = None) -> None:
     t = sub.add_parser("retry", help="retry a failed lecture")
     t.add_argument("--lecture", type=int, required=True, help="lecture id (see status)")
 
+    d = sub.add_parser(
+        "redo", help="redo a lecture (and every later one, whose notes depend on it)"
+    )
+    d.add_argument("--lecture", type=int, required=True, help="lecture id (see status)")
+
     e = sub.add_parser("export", help="rewrite the HTML for a course")
     e.add_argument("--course", type=int, required=True)
 
@@ -112,6 +117,12 @@ def main(argv: list[str] | None = None) -> None:
         )
         conn.execute("UPDATE courses SET status = 'active' WHERE status = 'needs_signin'")
         print("queued for retry; run `python -m notetaker run`")
+    elif args.cmd == "redo":
+        lec = store.lecture(conn, args.lecture)
+        if lec is None:
+            sys.exit(f"no lecture with id {args.lecture}")
+        n = store.reset_from(conn, lec["course_id"], lec["idx"])
+        print(f"reset {n} lecture(s) from #{lec['idx']} onwards; run `python -m notetaker run`")
     elif args.cmd == "export":
         for path in export_course(conn, args.course, cfg.notes_dir / f"course-{args.course}"):
             print(path)

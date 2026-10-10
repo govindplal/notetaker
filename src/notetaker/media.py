@@ -31,9 +31,14 @@ def duration_seconds(video: Path) -> float:
     return float(out.strip())
 
 
-def extract_audio(video: Path, out: Path) -> Path:
-    """16 kHz mono MP3: small enough to upload quickly, good enough for speech."""
-    _run(["-i", str(video), "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", str(out)])
+def extract_audio(video: Path, out: Path, speed: float | None = None) -> Path:
+    """16 kHz mono MP3: small enough to upload quickly, good enough for speech.
+
+    For a recording made at `speed`x, pass `speed` to slow the audio back to natural pace, which
+    transcribes far better than the sped-up audio (see docs/speed-test.json).
+    """
+    filters = ["-af", atempo_chain(speed)] if speed and speed > 1 else []
+    _run(["-i", str(video), "-vn", "-ac", "1", "-ar", "16000", *filters, "-b:a", "64k", str(out)])
     return out
 
 
@@ -70,34 +75,6 @@ def atempo_chain(speed: float) -> str:
         factor /= 0.5
     stages.append(f"atempo={factor:.6f}")
     return ",".join(stages)
-
-
-def normalize_speed(recording: Path, speed: float, out: Path) -> Path:
-    """Turn a recording made at `speed`x back into a 1x file, so timestamps match the lecture."""
-    _run(
-        [
-            "-i",
-            str(recording),
-            "-filter_complex",
-            f"[0:v]setpts=PTS*{speed}[v];[0:a]{atempo_chain(speed)}[a]",
-            "-map",
-            "[v]",
-            "-map",
-            "[a]",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "veryfast",
-            "-crf",
-            "28",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "64k",
-            str(out),
-        ]
-    )
-    return out
 
 
 def sample_frames(video: Path, out_dir: Path, every_s: float = 2.0) -> list[tuple[float, Path]]:
