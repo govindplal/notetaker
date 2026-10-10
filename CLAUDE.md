@@ -12,12 +12,9 @@ Notetaker is a hosted service that watches course lectures on the owner's behalf
 - Be polite to the course site: sequential downloads, low rate, no parallel hammering.
 
 ## Built vs still to build
-Nothing built yet. Still to build:
-- Job queue and DB schema (course, lecture, job, transcript, notes)
-- Course discovery and capture (Playwright login session, stream interception, ffmpeg)
-- Transcription (English + Hindi) and note generation with Gemini
-- Web UI: courses, lecture status, notes viewer (password protected)
-- Hosting and deploy
+Read `docs/HANDOFF.md` first: it holds the owner's requirements, decisions and past mistakes.
+Built: job queue and DB, discovery, in-browser recorder (real playback at 2x, since downloading is not allowed), chunked Gemini transcription, structured notes with ledger dedupe, static HTML export, worker with crash/quota handling, CLI.
+Still to build: web UI (courses, status, notes viewer, password), hosting and deploy. Capture in this repo is recording, not stream download: the architecture bullet above that prefers stream interception is superseded.
 
 ## Stack (decided; full plan in `docs/PLAN.md`)
 - Python 3.12, `uv`, `ruff`, `pytest`.
@@ -35,7 +32,9 @@ Nothing built yet. Still to build:
 
 ## Gotchas
 - ffmpeg is installed via winget (open a new shell, or add the WinGet Packages Gyan.FFmpeg bin dir to PATH). Docker only exists inside WSL (`wsl -e docker ...`). Keep unit tests independent of both.
-- Capture is blocked until the owner confirms the course terms allow downloading.
+- Owner confirmed recording playback is within the course terms; downloading is not allowed (CDN returns 403, do not bypass).
+- Gemini free tier is about 20 requests/day/model; the worker waits for the reset.
+- Never start the full-course run (about 30 h) unless the owner asks.
 
 ## Workflow
 - Explore and plan before non-trivial edits; use `/start-feature` and `/fix-bug`, and `/wrap-up` to end a session.

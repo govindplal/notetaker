@@ -1,25 +1,23 @@
 # Status (rewrite at every checkpoint; snapshot, not a log; under ~40 lines)
 
-Updated: 2026-10-09
+Updated: 2026-10-10. Long version of everything (requirements, decisions, mistakes): `docs/HANDOFF.md`. Read it first in a new session.
 
 ## Now
-- Full pipeline works live on the owner's real 100xdevs account: `python -m notetaker add-course ...` then `run`. Recorder (2x, seeks to start) -> normalize to 1x -> chunked Gemini transcription -> slides -> structured notes in the owner's style -> HTML (lecture pages + index) -> all working files deleted. Verified on lecture 1 of the AI/ML course (first 3 min only via `--max-minutes 3`): all 5 stages done on the first attempt, nothing but notes/ledger/HTML left on disk. 54 tests pass.
-- Worker rules: strictly one lecture at a time in order (ledger depends on earlier lectures); "another device playing" waits 10 min without counting as a failure; expired sign-in pauses the course; a failed lecture blocks later ones until `retry`.
-- Notes: HTML copies the reference repo's feature-explainer layout (one fixed palette), figures are drawn from data (flow/layers), no frames/transcripts stored or shown. See `docs/PLAN.md`.
-- Recorder Chrome runs with `--remote-debugging-port=9222 --user-data-dir=data/chrome-profile` (owner signed in once). Closing all its tabs exits Chrome. Do not open the course on another device while recording (one player per account).
-- Repo: github.com/govindplal/notetaker (main). `model-router` mod is user-level at `~/.claude/skills/model-router`.
+- Pipeline works live on the owner's real 100xdevs account: recorder (2x, continuous, saves on any stop, resumes at the exact end of what was saved) -> audio slowed to 1x -> chunked Gemini transcription -> frames -> structured notes in the owner's style with ledger dedupe -> HTML (lecture pages + index) -> working files deleted. Latest commit `293f8de`, 69 tests pass, lint clean.
+- Worker: one lecture at a time in order; device busy waits 10 min; expired sign-in pauses the course; Gemini daily quota waits for reset; failed lecture blocks later ones until `retry`.
+- Notes never store or show transcripts/frames; HTML copies the reference repo's palette (one fixed theme); figures drawn from data.
+- Recorder Chrome: `--remote-debugging-port=9222 --user-data-dir=data/chrome-profile` (owner signed in once). Do not open the course on another device while recording.
+- Data (git-ignored): `data/notetaker.db` (course 1, 33 lectures all pending), `data/lectures-ai-ml.tsv`, `data/chrome-profile/`. The Gemini key is in the repo-root `.env`.
+
+## Waiting on the owner
+- Gemini free tier allows about 20 requests/day/model and today's quota is used up (resets about 20 h after 2026-10-09 evening). Owner must choose: start now on free (slow, processing waits for quota), wait for reset, or paid Gemini (about $7-10). Do not start the 30 h full-course run until they say so.
 
 ## Next
-- Full run of the real AI/ML course: all 33 lectures are imported (`data/lectures-ai-ml.tsv`, 33 lines, ids read from the site). Lecture 1 is only a 3-minute test: it is marked done but its notes cover just the first 3 minutes, so re-run it with `retry` to get the full lecture. Lectures 2-33 are pending; start with `python -m notetaker run --forever`.
-- Test Hindi-heavy speech and a full-length (1-2 h) lecture; check Gemini free-tier limits over a long run.
-- Hosting: Docker image with Chrome + Xvfb + noVNC for the one-time sign-in, web UI to browse notes, deploy to the VM.
+- Run the full AI/ML course at 2x (lecture 1 first; it only has a 3-minute test), then show the owner lecture 1's notes after checking the page is current.
+- Test a full-length lecture and Hindi-heavy speech; live kill/restart test of the continuous capture.
+- Hosting: Docker with Chrome + Xvfb + noVNC for sign-in, FastAPI web UI, deploy to a free VM (`docs/PLAN.md`).
 
-## Open questions / blocked on the user
-- Do the 100xdevs course terms allow downloading lecture streams? Blocks the capture milestone (3).
-- (Done) Gemini key is in `.env`; ffmpeg installed.
-- Sample video for milestone 2: C:\Users\govin\Videos\2026-10-09\Sample.mp4 (4m33s, 1080p, 43 MB).
-
-## Learned this project (not yet in CLAUDE.md)
+## Learned this project
 - Mods are only auto-loaded from `.claude/skills/<name>` (project) or `~/.claude/skills/<name>`.
 - In Git Bash, `claude -p "/cmd"` needs `MSYS_NO_PATHCONV=1`.
-- The lecture list on 100xdevs shows ~128 videos across all the owner's courses; the AI/ML one has 33.
+- The 100xdevs account shows ~128 videos across courses; AI/ML has 33.
