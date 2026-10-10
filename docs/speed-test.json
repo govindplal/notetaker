@@ -1,0 +1,105 @@
+{
+  "sample": {
+    "url": "https://100xdevs.com/new-courses/23/video/4209",
+    "start_s": 1800.0,
+    "seconds": 180.0,
+    "reference_words": 214,
+    "hindi_marker_words_in_reference": 4
+  },
+  "noise_floor": {
+    "wer": 0.033,
+    "term_recall": 1.0
+  },
+  "speeds": {
+    "2x": {
+      "wall_s": 97.8,
+      "media_s": 180.0,
+      "effective_speed": 1.84,
+      "mb": 8.0,
+      "raw": {
+        "words": 208,
+        "wer": 0.136,
+        "term_recall": 0.939,
+        "hindi_recall": 1.0
+      },
+      "slowed": {
+        "words": 207,
+        "wer": 0.098,
+        "term_recall": 1.0,
+        "hindi_recall": 1.0
+      }
+    },
+    "3x": {
+      "wall_s": 67.4,
+      "media_s": 180.0,
+      "effective_speed": 2.67,
+      "mb": 5.7,
+      "raw": {
+        "words": 172,
+        "wer": 0.659,
+        "term_recall": 0.303,
+        "hindi_recall": 0.75
+      },
+      "slowed": {
+        "words": 199,
+        "wer": 0.182,
+        "term_recall": 0.909,
+        "hindi_recall": 1.0
+      }
+    },
+    "4x": {
+      "wall_s": 53.3,
+      "media_s": 180.0,
+      "effective_speed": 3.38,
+      "mb": 4.6,
+      "raw": {
+        "words": 139,
+        "wer": 0.907,
+        "term_recall": 0.061,
+        "hindi_recall": 0.25
+      },
+      "slowed": {
+        "words": 209,
+        "wer": 0.369,
+        "term_recall": 0.636,
+        "hindi_recall": 1.0
+      }
+    },
+    "6x": {
+      "wall_s": 37.3,
+      "media_s": 180.0,
+      "effective_speed": 4.82,
+      "mb": 3.2,
+      "raw": {
+        "words": 98,
+        "wer": 0.944,
+        "term_recall": 0.03,
+        "hindi_recall": 0.25
+      },
+      "slowed": {
+        "words": 64,
+        "wer": 0.939,
+        "term_recall": 0.0,
+        "hindi_recall": 0.0
+      }
+    },
+    "8x": {
+      "wall_s": 31.2,
+      "media_s": 180.0,
+      "effective_speed": 5.77,
+      "mb": 2.6,
+      "raw": {
+        "words": 61,
+        "wer": 0.963,
+        "term_recall": 0.0,
+        "hindi_recall": 0.25
+      },
+      "slowed": {
+        "words": 42,
+        "wer": 0.981,
+        "term_recall": 0.03,
+        "hindi_recall": 0.25
+      }
+    }
+  }
+}
