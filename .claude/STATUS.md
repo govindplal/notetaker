@@ -10,7 +10,7 @@ Updated: 2026-10-09
 - Repo: github.com/govindplal/notetaker (main). `model-router` mod is user-level at `~/.claude/skills/model-router`.
 
 ## Next
-- Full run of the real AI/ML course (33 lectures): needs the lecture list (title + URL per lecture) in a TSV; automatic discovery from the course page is not built.
+- Full run of the real AI/ML course: all 33 lectures are imported (`data/lectures-ai-ml.tsv`, 33 lines, ids read from the site). Lecture 1 is only a 3-minute test: it is marked done but its notes cover just the first 3 minutes, so re-run it with `retry` to get the full lecture. Lectures 2-33 are pending; start with `python -m notetaker run --forever`.
 - Test Hindi-heavy speech and a full-length (1-2 h) lecture; check Gemini free-tier limits over a long run.
 - Hosting: Docker image with Chrome + Xvfb + noVNC for the one-time sign-in, web UI to browse notes, deploy to the VM.
 
