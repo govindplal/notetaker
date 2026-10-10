@@ -31,14 +31,33 @@ def duration_seconds(video: Path) -> float:
     return float(out.strip())
 
 
-def extract_audio(video: Path, out: Path, speed: float | None = None) -> Path:
+def extract_audio(
+    video: Path, out: Path, speed: float | None = None, max_seconds: float | None = None
+) -> Path:
     """16 kHz mono MP3: small enough to upload quickly, good enough for speech.
 
     For a recording made at `speed`x, pass `speed` to slow the audio back to natural pace, which
     transcribes far better than the sped-up audio (see docs/speed-test.json).
     """
     filters = ["-af", atempo_chain(speed)] if speed and speed > 1 else []
-    _run(["-i", str(video), "-vn", "-ac", "1", "-ar", "16000", *filters, "-b:a", "64k", str(out)])
+    # max_seconds is recorded time: it cuts a recording that was cut off, at the point we trust.
+    limit = ["-t", f"{max_seconds:.3f}"] if max_seconds else []
+    _run(
+        [
+            "-i",
+            str(video),
+            *limit,
+            "-vn",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            *filters,
+            "-b:a",
+            "64k",
+            str(out),
+        ]
+    )
     return out
 
 

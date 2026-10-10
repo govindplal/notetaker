@@ -11,6 +11,7 @@ Timeline note: at speed S the recording is S times shorter than the lecture. Cal
 
 import base64
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,8 +36,11 @@ class RecordingFailed(Exception):
 class Recording:
     path: Path
     speed: float
-    lecture_seconds: float  # lecture length from the player
+    lecture_seconds: float  # how much lecture time this recording covers
     wall_seconds: float
+    start_t: float = 0.0  # lecture time (seconds) where the recording starts
+    end_t: float = 0.0  # lecture time where it stopped
+    duration: float = 0.0  # full length of the lecture, from the player
 
 
 START_JS = """
@@ -68,7 +72,7 @@ START_JS = """
       .then(() => send(e.data))
       .finally(() => { window.__nt.pending--; });
   };
-  rec.onstop = () => { window.__nt.stopped = true; };
+  rec.onstop = () => { window.__nt.stopped = true; window.__nt.stopT = v.currentTime; };
   rec.onerror = (e) => { window.__nt.error = String(e.error || e); };
   v.addEventListener('ended', () => { window.__nt.ended = true; rec.stop(); });
   rec.start(2000);
@@ -94,7 +98,7 @@ STATUS_JS = """
   return {
     t: v ? v.currentTime : null, dur: v ? v.duration : null, paused: v ? v.paused : null,
     rate: v ? v.playbackRate : null, ended: !!n.ended, stopped: !!n.stopped,
-    pending: n.pending || 0, error: n.error || null,
+    pending: n.pending || 0, error: n.error || null, stopT: n.stopT ?? null,
   };
 }
 """
@@ -124,17 +128,26 @@ def record_lecture(
     speed: float = 2.0,
     max_media_seconds: float | None = None,
     start_at: float = 0.0,
+    on_progress: Callable[[float, float], None] | None = None,
 ) -> Recording:
     """Record one lecture from `start_at` seconds (the start by default).
 
     The player resumes from wherever it was last stopped, so we always seek first.
-    `max_media_seconds` stops early (used for short test recordings).
+    `max_media_seconds` stops early (used for short test recordings). `on_progress(t, duration)` is
+    called every couple of seconds with the lecture time reached, so the caller can checkpoint it.
     """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     started = time.time()
     with sync_playwright() as pw:
         browser = pw.chromium.connect_over_cdp(cdp_url)
         ctx = browser.contexts[0]
+        # This browser belongs to the worker. A lecture page left open by a crashed run would still
+        # hold the account's single player slot, so close any before starting.
+        for stale in list(ctx.pages):
+            if "/video/" in stale.url:
+                stale.close()
+        if not ctx.pages:  # closing every tab would shut Chrome down; keep one idle tab
+            ctx.new_page().goto("about:blank")
         page = ctx.new_page()
         try:
             with out_path.open("wb") as f:
@@ -162,16 +175,22 @@ def record_lecture(
                 lecture_s = float(info["duration"])
                 # Measure from where playback actually starts (a seek can land slightly off).
                 start_t = float(page.evaluate("document.querySelector('video').currentTime"))
+                if abs(start_t - start_at) > 5:
+                    raise RecordingFailed(f"seek landed at {start_t:.0f}s, wanted {start_at:.0f}s")
                 remaining = lecture_s - start_t
                 limit_media = min(remaining, max_media_seconds or remaining)
                 deadline = time.time() + limit_media / speed * 1.5 + 90
                 last_t, last_move = -1.0, time.time()
+                end_t = start_t
 
                 while True:
                     st = page.evaluate(STATUS_JS)
+                    if on_progress is not None and st["t"] is not None:
+                        on_progress(float(st["t"]), lecture_s)
                     if st["error"]:
                         raise RecordingFailed(st["error"])
                     if st["stopped"] and st["pending"] == 0:
+                        end_t = float(st["stopT"] if st["stopT"] is not None else st["t"] or end_t)
                         break
                     if st["t"] is not None and st["t"] - start_t >= limit_media - 0.5:
                         page.evaluate(
@@ -194,8 +213,11 @@ def record_lecture(
     return Recording(
         path=out_path,
         speed=speed,
-        lecture_seconds=limit_media,
+        lecture_seconds=max(end_t - start_t, 0.0),
         wall_seconds=time.time() - started,
+        start_t=start_t,
+        end_t=end_t,
+        duration=lecture_s,
     )
 
 

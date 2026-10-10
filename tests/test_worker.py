@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from notetaker import jobs, pipeline, store, worker
-from notetaker.capture.record import DeviceBusy, NeedsSignIn
+from notetaker.capture.record import DeviceBusy, NeedsSignIn, Recording
 from notetaker.config import Config
 from notetaker.db import connect
 from notetaker.export import export_course
@@ -147,70 +147,185 @@ def _ctx(env):
     return pipeline.Ctx(conn=conn, cfg=cfg, lecture=lec, course=store.course(conn, cid))
 
 
-def test_chunked_transcription_slows_audio_and_keeps_one_timeline(env, monkeypatch):
-    ctx = _ctx(env)
-    (ctx.work / "recording.webm").write_bytes(b"x")
-    (ctx.work / "capture.json").write_text(json.dumps({"speed": 2.0, "lecture_seconds": 1200}))
-    chunks = []
-    for i in range(2):
-        p = ctx.work / f"c{i}.mp3"
-        p.write_bytes(b"x")
-        chunks.append((i * 600.0, p))
-    seen = {}
+def _write_parts(ctx, parts, speed=2.0, duration=1500.0):
+    state = {"duration": duration, "complete": True, "parts": []}
+    for i, (start, end) in enumerate(parts, 1):
+        name = f"part-{i:04d}.webm"
+        (ctx.work / name).write_bytes(b"x")
+        state["parts"].append({"file": name, "start": start, "end": end, "speed": speed})
+    (ctx.work / "capture.json").write_text(json.dumps(state))
 
-    def fake_extract(video, out, speed=None):
-        seen["video"], seen["speed"] = video.name, speed
+
+def _fake_recorder(calls, die_at=None, duration=1500.0, advance=None, error=None):
+    """Stands in for the browser. Records (start_at, max_media_seconds) per call.
+
+    With die_at=T the session reports progress up to lecture time T and then fails with `error`.
+    """
+
+    def record(cdp, url, out, speed, max_media_seconds, start_at, on_progress):
+        calls.append((start_at, max_media_seconds))
+        out.write_bytes(b"x")
+        stop = start_at + (advance if advance is not None else (max_media_seconds or duration))
+        t = start_at
+        while t < min(stop, duration):
+            t = min(t + 50.0, stop, duration)
+            on_progress(t, duration)
+            if die_at is not None and t >= die_at:
+                raise error or RuntimeError("killed")
+        end = min(stop, duration)
+        return Recording(
+            path=out, speed=speed, lecture_seconds=end - start_at, wall_seconds=1.0,
+            start_t=start_at, end_t=end, duration=duration,
+        )  # fmt: skip
+
+    return record
+
+
+def _state(ctx):
+    return json.loads((ctx.work / "capture.json").read_text())
+
+
+def test_an_error_mid_recording_keeps_what_was_recorded_and_the_restart_continues(env, monkeypatch):
+    ctx = _ctx(env)
+    calls = []
+    monkeypatch.setattr(pipeline, "record_lecture", _fake_recorder(calls, die_at=600.0))
+    with pytest.raises(RuntimeError):
+        pipeline.capture(ctx)  # e.g. the player stalls or another device takes over
+    part = _state(ctx)["parts"][0]
+    margin = pipeline.SAFETY_REAL_S * 2.0  # speed is 2x
+    assert (part["start"], part["end"]) == (0.0, 600.0 - margin)  # saved up to the last checkpoint
+    assert part["cut_off"] and (ctx.work / part["file"]).exists()
+    assert not list(ctx.work.glob("*.partial")) and not list(ctx.work.glob("*.progress"))
+
+    monkeypatch.setattr(pipeline, "record_lecture", _fake_recorder(calls))
+    pipeline.capture(ctx)  # the restart
+    assert (
+        calls[1][0] == 600.0 - margin
+    )  # seeks to where we stopped, not to 0 or the site's position
+    state = _state(ctx)
+    assert state["complete"] and state["parts"][-1]["end"] == 1500.0
+    assert [p["start"] for p in state["parts"]] == [0.0, 600.0 - margin]
+
+
+def test_a_hard_kill_leaves_files_that_the_next_run_turns_into_a_part(env, monkeypatch):
+    ctx = _ctx(env)
+    (ctx.work / "part-0001.partial").write_bytes(b"x" * 100)  # streamed to disk before the kill
+    (ctx.work / "part-0001.progress").write_text(
+        json.dumps({"start": 0.0, "t": 420.0, "speed": 2.0, "duration": 1500.0})
+    )
+    calls = []
+    monkeypatch.setattr(pipeline, "record_lecture", _fake_recorder(calls))
+    pipeline.capture(ctx)
+    state = _state(ctx)
+    assert (state["parts"][0]["start"], state["parts"][0]["end"]) == (0.0, 414.0)
+    assert calls[0][0] == 414.0 and state["complete"]
+    assert (ctx.work / "part-0001.webm").exists() and not list(ctx.work.glob("*.partial"))
+
+
+def test_a_cut_off_that_got_nowhere_is_discarded(env, monkeypatch):
+    ctx = _ctx(env)
+    (ctx.work / "part-0001.partial").write_bytes(b"x")
+    (ctx.work / "part-0001.progress").write_text(
+        json.dumps({"start": 0.0, "t": 8.0, "speed": 2.0, "duration": 1500.0})  # 8 - 6 = 2 s
+    )
+    calls = []
+    monkeypatch.setattr(pipeline, "record_lecture", _fake_recorder(calls))
+    pipeline.capture(ctx)
+    assert calls[0][0] == 0.0 and _state(ctx)["parts"][0]["start"] == 0.0
+
+
+def test_the_device_busy_error_also_saves_the_recording_so_far(env, monkeypatch):
+    ctx = _ctx(env)
+    monkeypatch.setattr(
+        pipeline, "record_lecture", _fake_recorder([], die_at=300.0, error=DeviceBusy("tv"))
+    )
+    with pytest.raises(DeviceBusy):
+        pipeline.capture(ctx)
+    assert _state(ctx)["parts"][0]["end"] == 300.0 - pipeline.SAFETY_REAL_S * 2.0
+
+
+def test_capture_stops_at_the_testing_cap(env, monkeypatch):
+    import dataclasses
+
+    ctx = _ctx(env)
+    ctx.cfg = dataclasses.replace(ctx.cfg, max_media_seconds=700.0)
+    calls = []
+    monkeypatch.setattr(pipeline, "record_lecture", _fake_recorder(calls))
+    pipeline.capture(ctx)
+    assert calls == [(0.0, 700.0)] and _state(ctx)["parts"][0]["end"] == 700.0
+
+
+def test_capture_fails_instead_of_looping_when_playback_makes_no_progress(env, monkeypatch):
+    ctx = _ctx(env)
+    monkeypatch.setattr(pipeline, "record_lecture", _fake_recorder([], advance=0.2))
+    with pytest.raises(pipeline.RecordingFailed):
+        pipeline.capture(ctx)
+
+
+def test_transcription_slows_each_part_trims_cut_offs_and_keeps_one_timeline(env, monkeypatch):
+    ctx = _ctx(env)
+    _write_parts(ctx, [(0.0, 594.0), (594.0, 1200.0)], speed=2.0)
+    seen = []
+
+    def fake_extract(video, out, speed=None, max_seconds=None):
+        seen.append((video.name, speed, max_seconds))
         out.write_bytes(b"a")
         return out
 
+    def fake_split(audio, out_dir, seconds):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        chunk = out_dir / "chunk.mp3"
+        chunk.write_bytes(b"c")
+        return [(0.0, chunk)]  # one chunk per part keeps this test about the timeline
+
     monkeypatch.setattr(pipeline.media, "extract_audio", fake_extract)
-    monkeypatch.setattr(pipeline.media, "split_audio", lambda a, d: chunks)
+    monkeypatch.setattr(pipeline.media, "split_audio", fake_split)
+    names = iter(["first", "second"])
     monkeypatch.setattr(
         pipeline.gemini,
         "transcribe",
-        lambda c, chunk: [{"start": 5.0, "end": 9.0, "text": chunk.name}],
+        lambda c, a: [{"start": 5.0, "end": 9.0, "text": next(names)}],
     )
     ctx._client = object()
     pipeline.transcribe(ctx)
-    assert seen == {
-        "video": "recording.webm",
-        "speed": 2.0,
-    }  # audio only, slowed back; no video re-encode
+    assert seen == [
+        ("part-0001.webm", 2.0, 297.0),
+        ("part-0002.webm", 2.0, 303.0),
+    ]  # recorded seconds
     segs = json.loads((ctx.work / "transcript.json").read_text(encoding="utf-8"))
-    assert [s["start"] for s in segs] == [5.0, 605.0]  # second chunk is offset by 600 s
+    assert [(x["text"], x["start"]) for x in segs] == [("first", 5.0), ("second", 599.0)]
     assert not (ctx.work / "audio.mp3").exists()
-    assert (ctx.work / "recording.webm").exists()  # still needed for the frames stage
+    assert (ctx.work / "part-0001.webm").exists()  # still needed for the frames stage
 
 
-def test_frames_are_sampled_from_the_recording_with_lecture_time_stamps(env, monkeypatch):
+def test_frames_use_lecture_time_across_parts_and_recordings_are_deleted(env, monkeypatch):
     ctx = _ctx(env)
-    rec = ctx.work / "recording.webm"
-    rec.write_bytes(b"x")
-    (ctx.work / "capture.json").write_text(json.dumps({"speed": 4.0, "lecture_seconds": 100}))
-    called = {}
+    _write_parts(ctx, [(0.0, 600.0), (600.0, 1200.0)], speed=4.0)
+    called = []
 
     def fake_sample(video, out_dir, every_s):
-        called["video"], called["every_s"] = video.name, every_s
+        called.append((video.name, every_s))
         out_dir.mkdir(parents=True, exist_ok=True)
         files = []
-        for i in range(3):
+        for i in range(2):
             f = out_dir / f"raw_{i}.jpg"
             f.write_bytes(b"j")
-            files.append((i * every_s, f))  # timestamps in recorded time, as ffmpeg gives them
+            files.append((i * every_s, f))  # recorded-time stamps, as ffmpeg gives them
         return files
 
     monkeypatch.setattr(pipeline.media, "sample_frames", fake_sample)
     monkeypatch.setattr(
-        pipeline.media,
-        "dedupe_frames",
-        lambda raw: [pipeline.media.Frame(ts=ts, path=p) for ts, p in raw[::2]],
-    )
+        pipeline.media, "dedupe_frames", lambda raw: [pipeline.media.Frame(ts=t, path=p) for t, p in raw[::2]]
+    )  # fmt: skip
     pipeline.frames(ctx)
-    assert called == {"video": "recording.webm", "every_s": 0.5}  # 2 s of lecture = 0.5 s at 4x
+    assert called == [
+        ("part-0001.webm", 0.5),
+        ("part-0002.webm", 0.5),
+    ]  # 2 s of lecture = 0.5 s at 4x
     kept = json.loads((ctx.work / "frames.json").read_text(encoding="utf-8"))
-    assert kept == [[0.0, "raw_0.jpg"], [4.0, "raw_2.jpg"]]  # lecture seconds: 0 and 2 * 2.0
-    assert not (ctx.work / "frames" / "raw_1.jpg").exists()  # near-duplicates are deleted
-    assert not rec.exists()
+    assert [k[0] for k in kept] == [0.0, 600.0]  # lecture seconds, offset by each part's start
+    assert all((ctx.work / rel).exists() for _t, rel in kept)
+    assert not (ctx.work / "part-0001.webm").exists() and not (ctx.work / "part-0002.webm").exists()
 
 
 def test_cleanup_removes_everything(env):
@@ -244,3 +359,21 @@ def test_redo_resets_the_lecture_and_everything_after_it(env):
     assert conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0] == 1
     assert store.reset_from(conn, cid, 1) == 2
     assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+
+
+def test_a_daily_gemini_quota_is_a_wait_not_a_failure(env):
+    from notetaker.gemini import QuotaExhausted
+
+    cfg, conn, _cid = env
+    worker.advance(conn)
+    job = jobs.claim_next(conn, now=1000)
+
+    def out_of_quota(ctx):
+        raise QuotaExhausted(72000)  # about 20 hours
+
+    stages = {**_recording_stages([]), "capture": out_of_quota}
+    assert worker.run_job(conn, cfg, job, stages, now=1000) == "quota"
+    row = conn.execute("SELECT state, attempts, next_run_at FROM jobs").fetchone()
+    assert (row["state"], row["attempts"]) == ("queued", 0)  # no attempt used up
+    assert row["next_run_at"] == 1000 + 72000 + 120
+    assert conn.execute("SELECT status FROM lectures WHERE idx = 1").fetchone()[0] != "failed"

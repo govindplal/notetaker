@@ -7,6 +7,7 @@ from collections.abc import Callable
 from notetaker import jobs, store
 from notetaker.capture.record import DeviceBusy, NeedsSignIn
 from notetaker.config import Config
+from notetaker.gemini import QuotaExhausted
 from notetaker.pipeline import STAGE_FUNCS, Ctx
 
 BUSY_RETRY_S = 600  # someone is watching on another device: try again in ten minutes
@@ -31,7 +32,7 @@ def run_job(
     stages: dict[str, Callable[[Ctx], None]] = STAGE_FUNCS,
     now: float | None = None,
 ) -> str:
-    """Run one claimed job. Returns done, busy, needs_signin or failed."""
+    """Run one claimed job. Returns done, busy, needs_signin, quota or failed."""
     lec = store.lecture(conn, job["lecture_id"])
     course = store.course(conn, lec["course_id"])
     ctx = Ctx(conn=conn, cfg=cfg, lecture=lec, course=course)
@@ -44,6 +45,10 @@ def run_job(
     except DeviceBusy as e:
         jobs.defer(conn, job["id"], BUSY_RETRY_S, f"another device is playing ({e})", now)
         return "busy"
+    except QuotaExhausted as e:
+        # The free tier's daily limit is a wait, not a failure: retry once it resets.
+        jobs.defer(conn, job["id"], min(e.retry_after_s + 120, 86400), str(e), now)
+        return "quota"
     except Exception as e:  # noqa: BLE001 - any stage error becomes a retry or a recorded failure
         jobs.fail(conn, job["id"], f"{type(e).__name__}: {e}", now)
         return "failed"
@@ -71,7 +76,7 @@ def work(
             waiting = conn.execute("SELECT COUNT(*) FROM jobs WHERE state = 'queued'").fetchone()[0]
             if waiting and not told:
                 log(
-                    f"{waiting} job(s) waiting to retry (another device playing, or sign-in needed)."
+                    f"{waiting} job(s) waiting to retry (device busy, sign-in needed, or Gemini quota)."
                 )
                 told = True
             if not waiting and stop_when_idle:
