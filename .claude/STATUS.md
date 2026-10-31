@@ -1,21 +1,18 @@
 # Status (rewrite at every checkpoint; snapshot, not a log; under ~40 lines)
 
-Updated: 2026-10-11. Long version: `docs/HANDOFF.md` (partly stale: still describes Gemini). `CLAUDE.md` is current.
+Updated: 2026-11-01. Long version: `docs/HANDOFF.md` (stale: Gemini, laptop-only). `CLAUDE.md` is current except it still says "runs on the laptop".
 
-## Now
-- Runs on the owner's laptop (GTX 1650 Ti 4 GB, 16 GB RAM). Local faster-whisper (large-v3-turbo; GPU 0.32x real time, CPU 0.71x) + `claude -p` notes. Gemini and the Hugging Face deploy spike are deleted. 95 tests pass, lint clean.
-- A lecture is worked in parts: Stop saves the recorded part, notes are written for it, lecture returns to `pending`; next Start continues and merges new notes (`notes.covered_until`). Claude usage limit stops the worker. Control page: `uv run python -m notetaker ui` -> http://127.0.0.1:8765 (Start/Stop/Retry/Resume/sign-in button, notes links). `/course` command prints where things stand.
-- Verified live (separate DB `data/e2e-run`, cap 150 s): stop mid-lecture, resume, lecture finished and cleaned up, HTML exported; a real two-part Claude notes write merged correctly (sections from both parts, no repeats, a frame passed without error). Two bugs found live and fixed with tests (partial lecture not re-queued; Whisper end overrun left transcript incomplete).
-- Real course data (git-ignored): `data/notetaker.db` (course 1, 33 lectures, all pending, untouched), `data/lectures-ai-ml.tsv`, `data/chrome-profile/`.
+## Now: full course run on Modal (owner asked 2026-10-31: all 33 lectures from scratch, laptop off)
+- Started 2026-10-31 18:37 UTC. Capture + transcription + frames run in Modal (`cloud/modal_app.py`, deployed app `notetaker`, workspace govind-p-lal). Notes run on the laptop: `cloud/notes_follower.py` (background) writes notes in lecture order with `claude -p` into `data/notetaker.db` / `data/notes/course-1/`, then deletes the lecture's working files locally and in the Volume. It exits non-zero to raise an alarm (cloud paused, capture quiet 90 min, notes failing 3x); log `data/notes-follower.log`.
+- Progress / control: `uv run --with modal python cloud/ctl.py status|stop|resume|start|whisper|asr-test` (PYTHONUTF8=1).
+- Modal pieces: `capture_next` (CPU, Chromium + Xvfb, max 1 container, chains itself), `post` -> `transcribe_gpu` (GPU list L4/A10G/L40S/T4; L4 had no capacity once), `watchdog` cron every 20 min (restarts a dead chain, re-runs a lost post). Volumes: `notetaker-profile` (Chrome sign-in), `notetaker-data` (lectures.json, work/, status/). Dict `notetaker-state` (running/paused/stop/heartbeat/events/whisper).
+- Whisper in Modal: large-v3-turbo, language `en`, Hinglish initial prompt (~60x real time on L4). Tested on 2 clips: this instructor speaks mostly English; forcing `hi` turns English into Devanagari gibberish; auto-detect risks that if a lecture opens in Hindi. Local default is still auto-detect (`NOTETAKER_WHISPER_LANGUAGE` to change).
+- Local DB reset from scratch before the run (backup `data/notetaker.db.bak-2026-10-31`). Don't press Start on the local control page while the cloud run is going (two players on one account).
+- Sign-in: `scripts/modal_login.py` (noVNC tunnel, random VNC password, 20 min). Rerun it if the run pauses with "needs sign-in", then `ctl.py resume`.
 
 ## Not verified yet
-- Hindi/English quality of Whisper (`language=None`; whole-lecture language guess may mangle one language). Test on a Hindi-heavy lecture first.
-- That Claude actually uses the slide frames (Read tool); real usage-limit message text (`_looks_like_limit` is a guess); a full-length lecture end to end; the control page opened in a browser (only TestClient-tested); the recorder's seek-to-0 failed once ("seek landed at 185s").
-
-## Next
-1. Hindi-heavy test: pick a lecture, run a few minutes, read the transcript and notes. Fix language handling if needed.
-2. Open the control page, press Start on a short capped run, check it looks right.
-3. Only when the owner says: start the real course. Expect several Starts because of Claude plan limits (a trivial call cost about $0.17 of cached context).
+- Notes from a full-length lecture (one `claude -p` call per lecture, 30 min timeout); real usage-limit message text (follower waits 1 h on anything that looks like a limit); Claude using frames; session lifetime of the Modal sign-in.
+- Notes still need the laptop on. To go fully laptop-off: `claude setup-token` -> Modal secret, and run the notes stage in Modal (DB on a Volume).
 
 ## Parked
 - Public/student version: private repo github.com/govindplal/notetaker-public (`docs/ARCHITECTURE.md`). After the personal one is complete.
@@ -23,4 +20,5 @@ Updated: 2026-10-11. Long version: `docs/HANDOFF.md` (partly stale: still descri
 ## Learned this project
 - Mods only auto-load from `.claude/skills/<name>`. In Git Bash, `claude -p "/cmd"` needs `MSYS_NO_PATHCONV=1`. AI/ML course has 33 lectures.
 - Compound `rm` commands get denied; single simple `rm` calls work. Run long jobs with the Bash tool's `run_in_background`, not `nohup &`.
-- ffmpeg is not on the Bash PATH (see CLAUDE.md gotchas).
+- ffmpeg is not on the Bash PATH (see CLAUDE.md gotchas). Modal CLI on Windows needs `PYTHONUTF8=1` (charmap errors).
+- Modal: Chromium needs `--no-sandbox`; delete stale Singleton* files before launch; `modal.forward` tunnels need the owner's OK.

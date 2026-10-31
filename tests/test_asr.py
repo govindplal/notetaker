@@ -18,7 +18,10 @@ class _FakeModel:
             raise RuntimeError("cublas64_12.dll not found")
         _FakeModel.loaded.append((name, device, compute_type))
 
-    def transcribe(self, samples, vad_filter, beam_size):
+    last_kwargs = {}
+
+    def transcribe(self, samples, **kwargs):
+        _FakeModel.last_kwargs = kwargs
         seg = types.SimpleNamespace
         out = [seg(start=0.0, end=2.0, text=" namaste "), seg(start=2.0, end=3.0, text="   ")]
         return iter(out), None
@@ -56,6 +59,20 @@ def test_segments_are_shifted_to_lecture_time_and_blank_text_is_dropped(fake_whi
     t = asr.WhisperTranscriber("large-v3-turbo")
     segs = list(t.transcribe(np.zeros(16000, dtype=np.float32), offset_s=600.0))
     assert segs == [{"start": 600.0, "end": 602.0, "text": "namaste"}]
+
+
+def test_language_and_prompt_are_passed_to_whisper(fake_whisper):
+    t = asr.WhisperTranscriber("large-v3-turbo", language="en", initial_prompt="Hinglish")
+    list(t.transcribe(np.zeros(16000, dtype=np.float32)))
+    kw = fake_whisper.last_kwargs
+    assert kw["language"] == "en" and kw["initial_prompt"] == "Hinglish"
+    assert kw["vad_filter"] is True
+
+
+def test_language_defaults_to_detection(fake_whisper):
+    t = asr.WhisperTranscriber("large-v3-turbo")
+    list(t.transcribe(np.zeros(16000, dtype=np.float32)))
+    assert fake_whisper.last_kwargs["language"] is None
 
 
 def test_decode_recording_slows_the_audio_and_cuts_it_to_natural_length(monkeypatch):

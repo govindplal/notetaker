@@ -58,7 +58,11 @@ class Ctx:
     @property
     def transcriber(self):
         if self._transcriber is None:
-            self._transcriber = asr.WhisperTranscriber(self.cfg.whisper_model)
+            self._transcriber = asr.WhisperTranscriber(
+                self.cfg.whisper_model,
+                language=self.cfg.whisper_language,
+                initial_prompt=self.cfg.whisper_prompt,
+            )
         return self._transcriber
 
     @property

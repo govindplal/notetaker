@@ -68,10 +68,18 @@ def _add_nvidia_dlls() -> None:
 class WhisperTranscriber:
     """faster-whisper on the GPU when it works, otherwise on the CPU (int8)."""
 
-    def __init__(self, model: str = "large-v3-turbo", device: str | None = None):
+    def __init__(
+        self,
+        model: str = "large-v3-turbo",
+        device: str | None = None,
+        language: str | None = None,
+        initial_prompt: str | None = None,
+    ):
         from faster_whisper import WhisperModel
 
         self.model_name = model
+        self.language = language  # None = detect from the first 30 s
+        self.initial_prompt = initial_prompt
         _add_nvidia_dlls()
         errors = []
         candidates = [("cuda", "float16"), ("cpu", "int8")]
@@ -89,9 +97,15 @@ class WhisperTranscriber:
             raise RuntimeError("no usable Whisper device: " + "; ".join(errors))
 
     def transcribe(self, samples: np.ndarray, *, offset_s: float = 0.0) -> Iterator[dict]:
-        # language=None lets Whisper detect it from the first 30 s. Hindi/English mixing is NOT yet
-        # verified: a whole-lecture language guess may suit one language and mangle the other.
-        segments, _info = self._model.transcribe(samples, vad_filter=True, beam_size=5)
+        # language=None lets Whisper detect it from the first 30 s; a whole-lecture guess may suit
+        # one language and mangle the other, so the language can be fixed (see Config).
+        segments, _info = self._model.transcribe(
+            samples,
+            vad_filter=True,
+            beam_size=5,
+            language=self.language,
+            initial_prompt=self.initial_prompt,
+        )
         for s in segments:
             text = s.text.strip()
             if text:

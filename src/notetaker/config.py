@@ -10,6 +10,8 @@ class Config:
     speed: float = 2.0  # playback speed while recording
     max_media_seconds: float | None = None  # cap per lecture; for short test recordings only
     whisper_model: str = "large-v3-turbo"
+    whisper_language: str | None = None  # None = Whisper detects it; "en"/"hi" fixes it
+    whisper_prompt: str | None = None  # optional initial prompt (vocabulary, script hints)
     claude_model: str | None = None  # None = the account's default model
 
     @property
@@ -44,6 +46,8 @@ class Config:
             speed=float(os.environ.get("NOTETAKER_SPEED", "2.0")),
             max_media_seconds=float(cap) if cap else None,
             whisper_model=os.environ.get("NOTETAKER_WHISPER_MODEL", "large-v3-turbo"),
+            whisper_language=os.environ.get("NOTETAKER_WHISPER_LANGUAGE") or None,
+            whisper_prompt=os.environ.get("NOTETAKER_WHISPER_PROMPT") or None,
             claude_model=os.environ.get("NOTETAKER_CLAUDE_MODEL") or None,
         )
 
