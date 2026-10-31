@@ -373,6 +373,11 @@ def watchdog() -> str:
             state["launched_at"] = now
             capture_next.spawn()
             actions.append(f"restarted capture (quiet for {(now - last) / 60:.0f} min)")
+    if state.get("notes_enabled") and not state.get("notes_finished"):
+        if now - state.get("notes_hb", 0) > 20 * 60 and now - state.get("notes_launched", 0) > 600:
+            state["notes_launched"] = now
+            notes_loop.spawn()
+            actions.append("restarted notes loop")
     for x in lectures:
         lid = x["id"]
         if _status("capture", lid).exists() and not _status("post", lid).exists():
@@ -384,6 +389,125 @@ def watchdog() -> str:
     for a in actions:
         _log(f"watchdog: {a}")
     return "; ".join(actions) or "ok"
+
+
+# ---------------------------------------------------------------- notes in the cloud
+
+notes_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("nodejs", "npm", "ffmpeg")
+    .run_commands("npm install -g @anthropic-ai/claude-code")
+    .pip_install(*PY_DEPS)
+    .add_local_dir(SRC, "/root/notetaker", ignore=IGNORE)
+)
+claude_secret = modal.Secret.from_name("claude-token")  # CLAUDE_CODE_OAUTH_TOKEN
+LIMIT_WORDS = ("usage limit", "rate limit", "limit reached", "quota", "resets", "exceeded")
+DB_LOCAL = "/tmp/notetaker.db"
+
+
+def _db_back_to_volume(conn) -> None:
+    import sqlite3
+
+    dest = sqlite3.connect(f"{DATA}/notetaker.db.new")
+    conn.backup(dest)
+    dest.close()
+    Path(f"{DATA}/notetaker.db.new").replace(f"{DATA}/notetaker.db")
+    data_vol.commit()
+
+
+@app.function(
+    image=notes_image,
+    volumes={DATA: data_vol},
+    secrets=[claude_secret],
+    cpu=1.0,
+    memory=2048,
+    timeout=23 * 3600,
+    max_containers=1,
+)
+def notes_loop() -> str:
+    """Write notes, in lecture order, for every lecture whose transcript and frames are ready."""
+    import shutil
+    import sqlite3
+
+    _path()
+    data_vol.reload()
+    from notetaker import store
+    from notetaker.db import connect
+    from notetaker.notes.claude_writer import UsageLimited
+    from notetaker.pipeline import Ctx
+    from notetaker.pipeline import notes as notes_stage
+
+    shutil.copy(f"{DATA}/notetaker.db", DB_LOCAL)
+    conn = connect(DB_LOCAL)
+    conn.row_factory = sqlite3.Row
+    cfg = _cfg()
+    course = store.course(conn, 1)
+    fails, started = 0, time.time()
+    _log("notes loop started")
+    while True:
+        state["notes_hb"] = time.time()
+        if state.get("notes_stop"):
+            return "stopped"
+        if time.time() - started > 22 * 3600:
+            notes_loop.spawn()  # a fresh container takes over before the timeout
+            return "handed over"
+        lec = conn.execute(
+            "SELECT * FROM lectures WHERE course_id = 1 AND status != 'done' ORDER BY idx LIMIT 1"
+        ).fetchone()
+        if lec is None:
+            state["notes_finished"] = time.time()
+            _log("notes: every lecture has notes")
+            return "finished"
+        lid, idx = lec["id"], lec["idx"]
+        data_vol.reload()
+        if not _status("post", lid).exists():
+            time.sleep(120)
+            continue
+        conn.execute("UPDATE lectures SET status = 'running' WHERE id = ?", (lid,))
+        t0 = time.time()
+        try:
+            notes_stage(Ctx(conn=conn, cfg=cfg, lecture=lec, course=course))
+        except UsageLimited as e:
+            _log(f"notes lecture {idx}: Claude usage limit, waiting {e.retry_after_s / 60:.0f} min")
+            _sleep_beating(e.retry_after_s)
+            continue
+        except Exception as e:  # noqa: BLE001
+            text = f"{type(e).__name__}: {e}"
+            if any(w in text.lower() for w in LIMIT_WORDS):
+                _log(f"notes lecture {idx}: looks like a usage limit, waiting 60 min: {text[:200]}")
+                _sleep_beating(3600)
+                continue
+            fails += 1
+            _log(f"notes lecture {idx}: failed {fails}: {text[:400]}")
+            state["notes_alarm"] = f"lecture {idx}: {text[:300]}"
+            _sleep_beating(600 if fails < 3 else 3600)
+            continue
+        fails = 0
+        state["notes_alarm"] = None
+        conn.execute("UPDATE lectures SET status = 'done' WHERE id = ?", (lid,))
+        shutil.rmtree(Path(DATA, "work", f"lecture-{lid}"), ignore_errors=True)
+        _db_back_to_volume(conn)
+        n = len(store.stored_notes(conn, lid).sections)
+        _log(f"notes lecture {idx}: {n} sections in {(time.time() - t0) / 60:.1f} min")
+
+
+def _sleep_beating(seconds: float) -> None:
+    end = time.time() + seconds
+    while time.time() < end:
+        state["notes_hb"] = time.time()
+        time.sleep(min(300, max(end - time.time(), 1)))
+
+
+@app.function(image=notes_image, secrets=[claude_secret], timeout=300)
+def claude_check() -> str:
+    """Does `claude -p` work in the cloud with the stored token?"""
+    r = subprocess.run(
+        ["claude", "-p", "Reply with exactly: ok", "--output-format", "json", "--tools", ""],
+        capture_output=True,
+        text=True,
+        timeout=240,
+    )
+    return f"exit {r.returncode}\n{r.stdout[:600]}\n{r.stderr[:600]}"
 
 
 # ---------------------------------------------------------------- one-off tests

@@ -78,6 +78,11 @@ def main() -> None:
     u.add_argument("--db", default="data/notetaker.db")
     u.add_argument("--course", type=int, default=1)
     sub.add_parser("start")
+    sub.add_parser("claude-check")
+    n = sub.add_parser("start-notes", help="upload the DB and start notes in Modal")
+    n.add_argument("--db", default="data/notetaker.db")
+    pn = sub.add_parser("pull-notes", help="download the finished notes HTML")
+    pn.add_argument("--to", default="data/notes-cloud")
     sub.add_parser("stop")
     sub.add_parser("resume")
     w = sub.add_parser("whisper")
@@ -108,6 +113,36 @@ def main() -> None:
         st["launched_at"] = time.time()
         call = _fn("capture_next").spawn()
         print(f"capture chain started ({call.object_id})")
+    elif args.cmd == "claude-check":
+        print(_fn("claude_check").remote())
+    elif args.cmd == "start-notes":
+        try:
+            _vol().listdir("notetaker.db")
+            sys.exit("a notes DB already exists in the Volume; refusing to overwrite it")
+        except Exception as e:  # noqa: BLE001 - not found is what we want
+            if isinstance(e, SystemExit):
+                raise
+        with _vol().batch_upload() as b:
+            b.put_file(args.db, "notetaker.db")
+        st["notes_enabled"] = True
+        st["notes_finished"] = None
+        st["notes_stop"] = False
+        st["notes_launched"] = time.time()
+        call = _fn("notes_loop").spawn()
+        print(f"notes loop started in Modal ({call.object_id})")
+    elif args.cmd == "pull-notes":
+        import pathlib
+
+        dest = pathlib.Path(args.to)
+        got = 0
+        for e in _vol().listdir("notes", recursive=True):
+            if e.type.name != "FILE":
+                continue
+            out = dest / e.path.split("notes/", 1)[1]
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"".join(_vol().read_file(e.path)))
+            got += 1
+        print(f"downloaded {got} files to {dest}")
     elif args.cmd == "stop":
         st["stop"] = True
         print("stop requested: the current part is saved, then the run pauses")
