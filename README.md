@@ -8,6 +8,8 @@ You point it at a course, sign in once, and press Start. For each lecture it pla
 
 It was built for long technical courses on sites with no captions or transcripts, with English and Hindi mixed in the same sentence.
 
+**How I run it:** on [Modal](https://modal.com), with my laptop closed. See [Run it on Modal](#run-it-on-modal-how-i-run-it). You can also run it entirely on your own machine.
+
 ## What you get
 
 - **Notes as a static site.** One page per lecture, with a table of contents, redrawn figures, code blocks, tables and hover glossary terms. No transcripts, no frames.
@@ -103,22 +105,24 @@ Notetaker records the video **you are already allowed to watch**, in your own br
 
 ## Limitations
 
-- Developed and tested on Windows 11 with Chrome. macOS and Linux are untested (the Chrome finder and the cloud runner are written to work there).
+- Developed and used on Windows 11 with Chrome. On Linux it has been run only inside the Modal container (headless Chromium on a virtual display). A local macOS or Linux desktop is untested, so treat it as unsupported until someone confirms it.
 - Page detection (sign-in page, "another device is playing") uses generic hints. Sites worded differently need the `NOTETAKER_*` hint variables, or a change in `src/notetaker/capture/state.py`.
 - The player is driven with a real click on a "Play video" button, falling back to clicking the `<video>` element. A player that works differently may need a change in `capture/record.py`.
 - Whisper's quality on mixed-language speech depends on the language setting; test before a long run.
 - Claude usage limits apply, and the exact limit message is only partly detected, so a run may need restarting.
 - It records in real time (half the lecture length at 2x), one lecture at a time. A 50-hour course takes more than a day.
 
-## Optional: run in the cloud
+## Run it on Modal (how I run it)
 
-`cloud/` contains an experimental deployment on [Modal](https://modal.com) that records, transcribes and writes the notes with your laptop off, one lecture at a time. It needs a Modal account, a one-time remote sign-in and a Claude token stored as a Modal secret. It is not covered by the tests and costs real money. See [`cloud/README.md`](cloud/README.md).
+This is how I actually use Notetaker. The pipeline also runs on [Modal](https://modal.com): I sign in to the course site once through a remote browser, deploy, press start, and close my laptop. Modal records each lecture on a CPU container, transcribes on a GPU container, and writes the notes with `claude -p`, one lecture at a time, while I do something else. A 50-hour course ran in about a day and a half of wall-clock time that way, and I read the finished notes afterwards.
+
+The Modal code is deliberately separate: it lives in [`cloud/`](cloud/), the core package never imports it, and it is not part of the installed package or the tests. You need a Modal account, a one-time remote sign-in and a Claude token stored as a Modal secret. It uses real cloud resources and costs money, so read [`cloud/README.md`](cloud/README.md) and `cloud/modal_app.py` first.
 
 ## Project layout
 
 ```
 src/notetaker/   the pipeline: capture/, asr.py, media.py, notes/, render/, worker.py, web.py, cli
-cloud/           optional Modal deployment (see cloud/README.md)
+cloud/           the Modal deployment, separate from the core (see cloud/README.md)
 docs/            architecture.md: how it works and why
 tests/           unit tests (speech and notes are faked; no Chrome, GPU or Claude needed)
 ```

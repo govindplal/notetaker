@@ -1,6 +1,6 @@
-# Run Notetaker in the cloud (optional, experimental)
+# Run Notetaker on Modal
 
-This deploys the same pipeline on [Modal](https://modal.com) so a whole course is recorded,
+This is how the author runs it, with the laptop closed. It is separate from the core package: nothing in `src/notetaker` imports it, and it is not part of the installed package or the tests. It deploys the same pipeline on [Modal](https://modal.com) so a whole course is recorded,
 transcribed and noted with your laptop off, still one lecture at a time. It uses real cloud
 resources and costs money, and it is not covered by the tests. Read `modal_app.py` before using it.
 
