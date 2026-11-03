@@ -11,12 +11,14 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import parse_qs
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from notetaker import agent as agent_mod
 from notetaker import store
 from notetaker.config import Config
 from notetaker.db import connect
@@ -62,6 +64,25 @@ STAGE_LABEL = {
 }
 
 
+def parse_lecture_lines(text: str) -> list[tuple[str, str]]:
+    """Lecture links pasted one per line: `URL`, `title<TAB>URL` or `title | URL`, in teaching order."""
+    out: list[tuple[str, str]] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        title, url = "", line
+        for sep in ("	", " | "):
+            if sep in line:
+                title, _, url = line.rpartition(sep)
+                break
+        title, url = title.strip(), url.strip()
+        if not url.startswith(("http://", "https://")):
+            raise ValueError(f"not a link: {line[:60]!r}")
+        out.append((title or f"Lecture {len(out) + 1}", url))
+    return out
+
+
 def is_running(cfg: Config) -> bool:
     try:
         with single_instance(cfg.lock_path):
@@ -105,6 +126,7 @@ def worker_state(conn, cfg: Config) -> dict:
             else None
         ),
         "usage_limit": waiting["error"] if usage else None,
+        "agent": agent_mod.read_state(cfg),
     }
 
 
@@ -191,10 +213,39 @@ def create_app(cfg: Config) -> FastAPI:
     def fragment(request: Request):
         return panel(request)
 
+    @app.post("/agent/check", response_class=HTMLResponse)
+    def check_agent(request: Request):
+        info = agent_mod.detect()
+        return panel(request, info.detail)
+
+    @app.post("/course/add", response_class=HTMLResponse)
+    async def add_course(request: Request):
+        form = parse_qs((await request.body()).decode("utf-8"))
+        title = (form.get("title") or [""])[0].strip()
+        url = (form.get("url") or [""])[0].strip()
+        if not url.startswith(("http://", "https://")):
+            return panel(request, "Paste the course link (it must start with https://).")
+        try:
+            lectures = parse_lecture_lines((form.get("lectures") or [""])[0])
+        except ValueError as e:
+            return panel(request, f"Could not read the lecture list: {e}")
+        if not lectures:
+            return panel(request, "Paste at least one lecture link, one per line.")
+        c = conn()
+        try:
+            cid = store.add_course(c, url, title or None)
+            added = store.add_lectures(c, cid, lectures)
+        finally:
+            c.close()
+        return panel(request, f"Added {added} lecture(s). Next: sign in once, then press Start.")
+
     @app.post("/worker/start", response_class=HTMLResponse)
     def start(request: Request):
         if is_running(cfg):
             return panel(request, "The worker is already running.")
+        info = agent_mod.detect()
+        if not (info.installed and info.logged_in):
+            return panel(request, f"Not started. {info.detail}")
         cmd = [sys.executable, "-m", "notetaker", "run"]
         kwargs: dict = {"cwd": str(Path.cwd()), "stdout": subprocess.DEVNULL}
         if sys.platform == "win32":
@@ -205,7 +256,11 @@ def create_app(cfg: Config) -> FastAPI:
             kwargs["start_new_session"] = True
         subprocess.Popen(cmd, **kwargs)
         time.sleep(1.5)  # give it a moment to take the lock before the panel is redrawn
-        return panel(request, "Started. It runs until you press Stop or the Claude usage runs out.")
+        return panel(
+            request,
+            "Started. The worker checks your agent first and says here if it had to start it. "
+            "It stops by itself when every lecture has notes.",
+        )
 
     @app.post("/worker/stop", response_class=HTMLResponse)
     def stop(request: Request):

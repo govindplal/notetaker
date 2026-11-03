@@ -14,6 +14,16 @@
   {% if message %}<div class="muted" style="margin-top:8px">{{ message }}</div>{% endif %}
 </div>
 
+<div class="box">
+  <strong>Notes agent:</strong>
+  {% set a = state.agent %}
+  {% if a.state == 'running' %}<span class="done">running</span>
+  {% elif a.state == 'unavailable' %}<span class="failed">not ready</span>
+  {% else %}<span class="muted">{{ a.agent or 'Claude Code' }} (idle)</span>{% endif %}
+  {% if a.message %}<div class="muted">{{ a.message }}</div>{% endif %}
+  <div style="margin-top:6px"><button class="secondary" hx-post="/agent/check" hx-target="#panel">Check my agent</button></div>
+</div>
+
 {% for c in courses %}
 <h2>{{ c.title }} <span class="pill">{{ c.status }}</span>
   <span class="muted">{{ c.done }} of {{ c.total }} lectures done</span></h2>
@@ -34,5 +44,16 @@
 </table>
 <div class="muted" style="margin-top:6px"><a href="{{ c.index }}" target="_blank">Course index</a></div>
 {% else %}
-<p class="muted">No courses yet. Add one with <code>python -m notetaker add-course</code>.</p>
 {% endfor %}
+
+<div class="box">
+  <strong>{% if courses %}Add another course{% else %}Add your first course{% endif %}</strong>
+  <div class="muted">Runs on this computer. Steps: 1) check your agent above, 2) paste the course below,
+    3) press <em>Open recorder browser</em> and sign in once, 4) press Start.</div>
+  <form hx-post="/course/add" hx-target="#panel" style="margin-top:8px">
+    <p><input name="title" placeholder="Course name" style="width:100%"></p>
+    <p><input name="url" placeholder="Course link, https://..." style="width:100%"></p>
+    <p><textarea name="lectures" rows="6" style="width:100%" placeholder="Lecture links in teaching order, one per line.&#10;A title is optional: Title | https://..."></textarea></p>
+    <button>Add course</button>
+  </form>
+</div>

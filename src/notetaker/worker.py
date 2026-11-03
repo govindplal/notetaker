@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from notetaker import jobs, store
+from notetaker.agent import AgentUnavailable
 from notetaker.capture.record import DeviceBusy, NeedsSignIn
 from notetaker.config import Config
 from notetaker.notes.claude_writer import UsageLimited
@@ -130,34 +131,61 @@ def work(
     log: Callable[[str], None] = print,
     stages: dict[str, Callable[[Ctx], None]] = STAGE_FUNCS,
     idle_s: float = 30,
+    agent: Callable[[Config], str | None] | None = None,
+    agent_release: Callable[[Config], None] | None = None,
 ) -> str:
-    """Process jobs until stopped, out of Claude usage, or finished. Returns why it stopped."""
+    """Process jobs until stopped, out of Claude usage, or finished. Returns why it stopped.
+
+    `agent` (see notetaker.agent.ensure_agent) runs once at the start: it checks that the user's
+    agent is ready and returns a notice when the worker had to start it.
+    """
     with single_instance(cfg.lock_path):
-        cfg.stop_path.unlink(missing_ok=True)  # a stop left over from before this start is void
-        # Anything still marked running was left by a crashed worker, so it runs again.
-        conn.execute("UPDATE jobs SET state = 'queued' WHERE state = 'running'")
-        told = False
-        while True:
-            stopping = stop_requested(cfg)
-            if not stopping:
-                advance(conn)
-            job = jobs.claim_next(conn)
-            if job is None:
-                if stopping:
-                    return "stopped"
-                if _blocked_by_usage(conn):  # no point waiting an hour in the loop: say so and stop
-                    return "usage_limit"
-                if not _work_left(conn):
-                    return "finished"
-                if not told:
-                    log("waiting: device busy, sign-in needed or a retry is scheduled")
-                    told = True
-                time.sleep(idle_s)
-                continue
-            told = False
-            lec = store.lecture(conn, job["lecture_id"])
-            log(f"lecture {lec['idx']} ({lec['title']}): {job['stage']} ...")
-            outcome = run_job(conn, cfg, job, stages, should_stop=lambda: stop_requested(cfg))
-            log(f"lecture {lec['idx']}: {job['stage']} -> {outcome}")
-            if outcome == "usage_limit":
+        try:
+            if agent is not None:
+                notice = agent(cfg)
+                if notice:
+                    log(notice)
+            return _work_loop(conn, cfg, log, stages, idle_s)
+        except AgentUnavailable as e:
+            log(str(e))
+            return "agent_unavailable"
+        finally:
+            if agent_release is not None:
+                agent_release(cfg)
+
+
+def _work_loop(
+    conn: sqlite3.Connection,
+    cfg: Config,
+    log: Callable[[str], None],
+    stages: dict[str, Callable[[Ctx], None]],
+    idle_s: float,
+) -> str:
+    cfg.stop_path.unlink(missing_ok=True)  # a stop left over from before this start is void
+    # Anything still marked running was left by a crashed worker, so it runs again.
+    conn.execute("UPDATE jobs SET state = 'queued' WHERE state = 'running'")
+    told = False
+    while True:
+        stopping = stop_requested(cfg)
+        if not stopping:
+            advance(conn)
+        job = jobs.claim_next(conn)
+        if job is None:
+            if stopping:
+                return "stopped"
+            if _blocked_by_usage(conn):  # no point waiting an hour in the loop: say so and stop
                 return "usage_limit"
+            if not _work_left(conn):
+                return "finished"
+            if not told:
+                log("waiting: device busy, sign-in needed or a retry is scheduled")
+                told = True
+            time.sleep(idle_s)
+            continue
+        told = False
+        lec = store.lecture(conn, job["lecture_id"])
+        log(f"lecture {lec['idx']} ({lec['title']}): {job['stage']} ...")
+        outcome = run_job(conn, cfg, job, stages, should_stop=lambda: stop_requested(cfg))
+        log(f"lecture {lec['idx']}: {job['stage']} -> {outcome}")
+        if outcome == "usage_limit":
+            return "usage_limit"

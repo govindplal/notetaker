@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 from notetaker import store
+from notetaker.agent import ensure_agent, release_agent
 from notetaker.config import Config, load_dotenv
 from notetaker.db import connect
 from notetaker.export import export_course
@@ -94,7 +95,12 @@ def main(argv: list[str] | None = None) -> None:
         if args.max_minutes:
             overrides["max_media_seconds"] = args.max_minutes * 60
         try:
-            reason = work(conn, dataclasses.replace(cfg, **overrides))
+            reason = work(
+                conn,
+                dataclasses.replace(cfg, **overrides),
+                agent=ensure_agent,
+                agent_release=release_agent,
+            )
         except AlreadyRunning as e:
             sys.exit(str(e))
         print(f"worker stopped: {reason}")

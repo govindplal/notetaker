@@ -120,3 +120,35 @@ def test_find_chrome_honours_the_environment(monkeypatch, tmp_path):
     fake.write_text("")
     monkeypatch.setenv("NOTETAKER_CHROME", str(fake))
     assert web.find_chrome() == str(fake)
+
+
+def test_parse_lecture_lines():
+    from notetaker.web import parse_lecture_lines
+
+    got = parse_lecture_lines("https://x/1\nIntro | https://x/2\n# skip\nTab\thttps://x/3\n")
+    assert got == [("Lecture 1", "https://x/1"), ("Intro", "https://x/2"), ("Tab", "https://x/3")]
+    with pytest.raises(ValueError):
+        parse_lecture_lines("not a link")
+
+
+def test_add_course_from_the_page(app_env):
+    _cfg, conn, client = app_env
+    body = "title=New+one&url=https%3A%2F%2Fy%2Fc&lectures=https%3A%2F%2Fy%2F1%0AIntro+%7C+https%3A%2F%2Fy%2F2"
+    r = client.post(
+        "/course/add", content=body, headers={"content-type": "application/x-www-form-urlencoded"}
+    )
+    assert "Added 2 lecture(s)" in r.text and "New one" in r.text
+    r = client.post(
+        "/course/add",
+        content="url=nope&lectures=",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert "must start with https" in r.text
+
+
+def test_start_is_refused_when_the_agent_is_not_ready(app_env, monkeypatch):
+    from notetaker import agent
+
+    monkeypatch.setattr(agent, "detect", lambda: agent.AgentInfo(True, False, "Sign in first."))
+    _cfg, _conn, client = app_env
+    assert "Not started. Sign in first." in client.post("/worker/start").text
