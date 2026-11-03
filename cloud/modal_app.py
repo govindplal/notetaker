@@ -1,19 +1,21 @@
-"""Notetaker on Modal: watch a whole course, one lecture at a time, with the laptop off.
+"""Notetaker on Modal: process a whole course, one lecture at a time, with your laptop off.
 
 - capture_next (CPU): Chromium on a virtual display, signed in through the profile in Volume
-  `notetaker-profile` (made once with scripts/modal_login.py). Records the next lecture that is not
+  `notetaker-profile` (made once with cloud/login.py). Records the next lecture that is not
   captured yet with the project's own `pipeline.capture` (2x, resumable parts), hands it to `post`,
   then calls itself for the next lecture. At most one capture container ever runs.
-- post (CPU) -> transcribe_gpu (L4): `pipeline.transcribe` with faster-whisper, then
+- post (CPU) -> transcribe_gpu (GPU): `pipeline.transcribe` with faster-whisper, then
   `pipeline.frames`. Runs while the next lecture is being recorded.
-- watchdog (cron): restarts the chain if a container died, and re-runs a lost post.
+- notes_loop (CPU): `pipeline.notes` with `claude -p`, in lecture order, as soon as a lecture's
+  transcript and frames are ready. Needs the Modal secret `claude-token`. Waits out usage limits.
+- watchdog (cron): restarts a loop that died and re-runs a lost post.
 
-Working files live in Volume `notetaker-data` under work/lecture-<id>/ exactly as on the laptop;
+Working files live in Volume `notetaker-data` under work/lecture-<id>/ exactly as on a laptop;
 status/capture-<id>.json and status/post-<id>.json mark finished stages. Live control and progress
-are in Dict `notetaker-state` (see cloud/ctl.py). Notes are written elsewhere (claude -p), after
-which the lecture's working files are deleted.
+are in Dict `notetaker-state` (see cloud/ctl.py). A lecture's working files are deleted once its
+notes are written.
 
-Deploy:  PYTHONUTF8=1 modal deploy cloud/modal_app.py
+Deploy:  modal deploy cloud/modal_app.py      (see cloud/README.md for the full setup)
 """
 
 import json

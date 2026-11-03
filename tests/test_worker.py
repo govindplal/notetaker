@@ -18,7 +18,7 @@ from notetaker.notes.writer import ledger_entries
 def env(tmp_path):
     cfg = Config(data_dir=tmp_path)
     conn = connect(cfg.db_path)
-    cid = store.add_course(conn, "https://x/course", "AI and ML")
+    cid = store.add_course(conn, "https://x/course", "Intro to ML")
     store.add_lectures(conn, cid, [("Intro", "https://x/v/1"), ("Attention", "https://x/v/2")])
     return cfg, conn, cid
 

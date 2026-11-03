@@ -6,7 +6,7 @@ from notetaker.capture.state import PageState, classify
 
 def test_busy_page_is_detected():
     text = "Video already playing\nClose this site's video tab on the other device"
-    assert classify("https://100xdevs.com/new-courses/23/video/1", text, False) is PageState.BUSY
+    assert classify("https://courses.example.com/video/1", text, False) is PageState.BUSY
 
 
 def test_busy_wins_over_stale_video_element():
@@ -22,7 +22,7 @@ def test_unknown_while_loading():
 
 
 @pytest.mark.parametrize(
-    "url", ["https://100xdevs.com/login", "https://100xdevs.com/auth/callback"]
+    "url", ["https://courses.example.com/login", "https://courses.example.com/auth/callback"]
 )
 def test_signin_redirect_is_detected(url):
     assert classify(url, "", False) is PageState.NEEDS_SIGNIN
@@ -49,3 +49,24 @@ def test_atempo_chains_for_3x():
 def test_atempo_rejects_slowdown():
     with pytest.raises(ValueError):
         media.atempo_chain(0.5)
+
+
+def test_site_hints_can_be_overridden(monkeypatch):
+    import importlib
+
+    from notetaker.capture import state
+
+    monkeypatch.setenv("NOTETAKER_BUSY_TEXT", "another session is active")
+    monkeypatch.setenv("NOTETAKER_SIGNIN_URL_HINTS", "/accounts/entry")
+    try:
+        importlib.reload(state)
+        assert (
+            state.classify("https://x/v", "Another session is active", True) is state.PageState.BUSY
+        )
+        assert state.classify("https://x/accounts/entry", "", False) is state.PageState.NEEDS_SIGNIN
+        assert (
+            state.classify("https://x/login", "", False) is state.PageState.UNKNOWN
+        )  # default hint replaced
+    finally:
+        monkeypatch.undo()
+        importlib.reload(state)

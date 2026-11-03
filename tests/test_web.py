@@ -12,7 +12,7 @@ from notetaker.worker import single_instance
 def app_env(tmp_path):
     cfg = Config(data_dir=tmp_path)
     conn = connect(cfg.db_path)
-    cid = store.add_course(conn, "https://x/course", "AI and ML")
+    cid = store.add_course(conn, "https://x/course", "Intro to ML")
     store.add_lectures(conn, cid, [("Intro", "https://x/v/1"), ("Attention", "https://x/v/2")])
     return cfg, conn, TestClient(create_app(cfg))
 
@@ -21,7 +21,7 @@ def test_the_page_shows_the_worker_the_course_and_every_lecture(app_env):
     _cfg, _conn, client = app_env
     page = client.get("/")
     assert page.status_code == 200
-    for text in ("AI and ML", "Intro", "Attention", "stopped", "0 of 2 lectures done"):
+    for text in ("Intro to ML", "Intro", "Attention", "stopped", "0 of 2 lectures done"):
         assert text in page.text
 
 
@@ -111,3 +111,12 @@ def test_finished_notes_are_linked_and_served(app_env):
     assert "/notes/course-1/lecture-01.html" in client.get("/panel").text
     page = client.get("/notes/course-1/lecture-01.html")
     assert page.status_code == 200 and "Models" in page.text
+
+
+def test_find_chrome_honours_the_environment(monkeypatch, tmp_path):
+    from notetaker import web
+
+    fake = tmp_path / "my-chrome"
+    fake.write_text("")
+    monkeypatch.setenv("NOTETAKER_CHROME", str(fake))
+    assert web.find_chrome() == str(fake)

@@ -12,3 +12,9 @@ CLAUDE.local.md
 data/
 *.db
 *.db-*
+
+# Personal AI-assistant workflow files (kept locally, not published)
+.claude/
+CLAUDE.md
+scripts/
+tools/

@@ -163,8 +163,8 @@ def main() -> None:
             print(f"recording lecture {lec['idx']} {args.start:.0f}s +{args.seconds:.0f}s ...")
             print(_fn("record_clip").remote(lec["url"], args.start, args.seconds, name))
         prompt = (
-            "Hinglish lecture on AI and machine learning. Hindi words are written in Roman "
-            "script: matlab, toh, kya, hai, accha, samjhe, dekho."
+            "A technical lecture in English with romanised Hindi words mixed in "
+            "(matlab, toh, kya, hai, samjhe)."
         )
         configs = [
             {"model": "large-v3-turbo", "language": None},

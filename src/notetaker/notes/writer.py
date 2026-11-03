@@ -1,11 +1,20 @@
 """Write structured notes for one lecture, aware of what earlier lectures already covered."""
 
+import os
 from pathlib import Path
 from typing import Protocol
 
 from notetaker.notes.model import Concept, LectureNotes
 
-STYLE = (Path(__file__).parent / "style.md").read_text(encoding="utf-8")
+
+def load_style() -> str:
+    """The note-writing style prompt: your own file (NOTETAKER_STYLE_FILE) or the bundled default."""
+    custom = os.environ.get("NOTETAKER_STYLE_FILE")
+    path = Path(custom) if custom else Path(__file__).parent / "style.md"
+    return path.read_text(encoding="utf-8")
+
+
+STYLE = load_style()
 MAX_FRAMES = 60
 MAX_ATTEMPTS = 3
 

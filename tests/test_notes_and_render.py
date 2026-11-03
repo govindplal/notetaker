@@ -65,7 +65,7 @@ def test_pick_frames_caps_and_spreads():
 
 
 def test_render_contains_all_parts_and_escapes_html():
-    out = render.render_lecture(_notes(), course_title="AI and ML", lecture_idx=4)
+    out = render.render_lecture(_notes(), course_title="Intro to ML", lecture_idx=4)
     assert "Why tokenize" in out and "adds to earlier" in out
     assert 'class="mermaid"' in out and "flowchart LR" in out
     assert 'data-latex="x^2"' in out
@@ -83,7 +83,7 @@ def test_render_contains_all_parts_and_escapes_html():
 
 
 def test_render_uses_one_light_palette_and_no_media():
-    out = render.render_lecture(_notes(), course_title="AI and ML", lecture_idx=4)
+    out = render.render_lecture(_notes(), course_title="Intro to ML", lecture_idx=4)
     assert "#FAF9F5" in out and "#D97757" in out  # reference palette
     assert "prefers-color-scheme" not in out and 'data-theme="dark"' not in out
     # frames, transcripts and timestamps are never shown
@@ -160,3 +160,14 @@ def test_degenerate_repetition_is_detected_but_normal_text_is_not():
     )
     assert writer.degenerate_text(ok) is None
     assert writer.degenerate_text(_notes()) is None
+
+
+def test_custom_style_file_replaces_the_bundled_style(monkeypatch, tmp_path):
+    from notetaker.notes import writer
+
+    style = tmp_path / "mine.md"
+    style.write_text("Write like a pirate.", encoding="utf-8")
+    monkeypatch.setenv("NOTETAKER_STYLE_FILE", str(style))
+    assert writer.load_style() == "Write like a pirate."
+    monkeypatch.delenv("NOTETAKER_STYLE_FILE")
+    assert "How the student writes notes" in writer.load_style()

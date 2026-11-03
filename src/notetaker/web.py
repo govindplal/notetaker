@@ -5,6 +5,8 @@ launches the same `python -m notetaker run` that the command line uses, and Stop
 to finish its current part. Buttons that would fight a running worker are refused.
 """
 
+import os
+import shutil
 import subprocess
 import sys
 import time
@@ -22,10 +24,35 @@ from notetaker.export import lecture_filename
 from notetaker.worker import AlreadyRunning, single_instance
 
 TEMPLATES = Path(__file__).parent / "render" / "templates"
-RECORDER_CHROME = [
+CHROME_PATHS = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 ]
+CHROME_COMMANDS = [
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium-browser",
+    "chrome",
+]
+
+
+def find_chrome() -> str | None:
+    """The Chrome (or Chromium) executable to use for the recorder browser, if one is found."""
+    env = os.environ.get("NOTETAKER_CHROME")
+    if env and Path(env).exists():
+        return env
+    for p in CHROME_PATHS:
+        if Path(p).exists():
+            return p
+    for name in CHROME_COMMANDS:
+        found = shutil.which(name)
+        if found:
+            return found
+    return None
+
+
 STAGE_LABEL = {
     "capture": "recording",
     "transcribe": "transcribing",
@@ -225,17 +252,23 @@ def create_app(cfg: Config) -> FastAPI:
     @app.post("/signin", response_class=HTMLResponse)
     def signin(request: Request):
         """Open the recorder Chrome with its own profile, so the owner can sign in once."""
-        exe = next((p for p in RECORDER_CHROME if Path(p).exists()), None)
+        exe = find_chrome()
         if exe is None:
-            return panel(request, "Chrome was not found in its usual place.")
+            return panel(request, "Chrome was not found. Set NOTETAKER_CHROME to its path.")
         if is_running(cfg):
             return panel(request, "Stop the worker before signing in.")
+        c = conn()
+        try:
+            row = c.execute("SELECT url FROM courses ORDER BY id LIMIT 1").fetchone()
+        finally:
+            c.close()
+        start_url = row["url"] if row else "about:blank"  # the first course's page
         subprocess.Popen(
             [
                 exe,
                 "--remote-debugging-port=9222",
                 f"--user-data-dir={(cfg.data_dir / 'chrome-profile').resolve()}",
-                "https://100xdevs.com",
+                start_url,
             ]
         )
         return panel(request, "Sign in in the Chrome window that opened, then return here.")

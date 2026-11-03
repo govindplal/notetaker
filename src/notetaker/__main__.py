@@ -1,6 +1,6 @@
 """Command line: add a course, run the worker, stop it, check progress, retry, export, open the page.
 
-    uv run python -m notetaker add-course --url URL --title "AI and ML Bootcamp" --lectures lectures.tsv
+    uv run python -m notetaker add-course --url URL --title "My Course" --lectures lectures.tsv
     uv run python -m notetaker run              # process lectures in order until stopped or finished
     uv run python -m notetaker stop             # finish the current part and exit
     uv run python -m notetaker status
