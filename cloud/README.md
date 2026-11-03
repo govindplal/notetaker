@@ -9,7 +9,10 @@ resources and costs money, and it is not covered by the tests. Read `modal_app.p
 - **capture** (CPU container): Chromium on a virtual display plays and records each lecture.
 - **transcribe** (GPU container): faster-whisper on the recorded audio, then slide frames.
 - **notes** (CPU container): `claude -p` writes the notes, in lecture order. It waits out usage limits.
-- **watchdog** (every 20 minutes): restarts a loop that died.
+- **supervise** (no schedule): restarts a loop that died and ends the whole run when every lecture
+  has notes, when nothing has progressed for 6 hours, or after 120 hours. Then `ctl.py status` shows
+  a receipt and nothing is running. An earlier version used a 20-minute cron that kept firing after
+  the course was done; that is why there is no cron now.
 
 State lives in two Modal Volumes (`notetaker-profile` for the browser sign-in, `notetaker-data` for
 work files and the database) and a Dict (`notetaker-state`) for live control.

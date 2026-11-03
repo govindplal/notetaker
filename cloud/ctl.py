@@ -50,7 +50,16 @@ def _status_files() -> set[str]:
 
 def status() -> None:
     st = _state()
-    keys = ("running", "paused", "stop", "current", "heartbeat", "whisper", "capture_finished")
+    keys = (
+        "running",
+        "paused",
+        "stop",
+        "current",
+        "heartbeat",
+        "whisper",
+        "capture_finished",
+        "receipt",
+    )
     for k in keys:
         v = st.get(k)
         if k == "heartbeat" and v:
@@ -111,8 +120,11 @@ def main() -> None:
         st["running"] = True
         st["stop"] = False
         st["launched_at"] = time.time()
+        st["stop_all"] = False
+        st["receipt"] = None
         call = _fn("capture_next").spawn()
-        print(f"capture chain started ({call.object_id})")
+        sup = _fn("supervise").spawn()
+        print(f"capture chain started ({call.object_id}); supervisor {sup.object_id} ends the run")
     elif args.cmd == "claude-check":
         print(_fn("claude_check").remote())
     elif args.cmd == "start-notes":
@@ -145,14 +157,17 @@ def main() -> None:
         print(f"downloaded {got} files to {dest}")
     elif args.cmd == "stop":
         st["stop"] = True
-        print("stop requested: the current part is saved, then the run pauses")
+        st["stop_all"] = True
+        print("stop requested: the current part is saved, then the run and its supervisor end")
     elif args.cmd == "resume":
         st["stop"] = False
         st["paused"] = None
         st["running"] = True
         st["launched_at"] = time.time()
+        st["stop_all"] = False
         call = _fn("capture_next").spawn()
-        print(f"resumed ({call.object_id})")
+        sup = _fn("supervise").spawn()
+        print(f"resumed ({call.object_id}); supervisor {sup.object_id}")
     elif args.cmd == "whisper":
         st["whisper"] = {"model": args.model, "language": args.language, "prompt": args.prompt}
         print(f"whisper settings: {st['whisper']}")

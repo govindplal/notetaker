@@ -8,7 +8,8 @@
   `pipeline.frames`. Runs while the next lecture is being recorded.
 - notes_loop (CPU): `pipeline.notes` with `claude -p`, in lecture order, as soon as a lecture's
   transcript and frames are ready. Needs the Modal secret `claude-token`. Waits out usage limits.
-- watchdog (cron): restarts a loop that died and re-runs a lost post.
+- supervise: no schedule. Restarts a loop that died, re-runs a lost post, and ENDS the run when
+  every lecture has notes (or it is stuck or over budget), so nothing keeps firing afterwards.
 
 Working files live in Volume `notetaker-data` under work/lecture-<id>/ exactly as on a laptop;
 status/capture-<id>.json and status/post-<id>.json mark finished stages. Live control and progress
@@ -353,16 +354,24 @@ def post(lid: int) -> dict:
     return info
 
 
-@app.function(
-    image=light_image,
-    volumes={DATA: data_vol},
-    schedule=modal.Period(minutes=20),
-    timeout=300,
-)
-def watchdog() -> str:
+SUPERVISE_EVERY_S = 300
+SUPERVISOR_HANDOVER_S = 22 * 3600
+IDLE_STOP_S = 6 * 3600  # no heartbeat from any worker for this long: stop and say so
+MAX_RUN_HOURS = 120  # spend guard: a run never supervises longer than this
+
+
+def _all_done() -> bool:
+    """Every lecture is captured, post-processed and has notes."""
+    lectures = _lectures()
+    return (
+        bool(lectures)
+        and (bool(state.get("notes_finished")) or not state.get("notes_enabled"))
+        and all(_status("post", x["id"]).exists() for x in lectures)
+    )
+
+
+def _check() -> str:
     """Restart the capture chain if it died; re-run a post that never finished."""
-    if not state.get("running"):
-        return "not running"
     data_vol.reload()
     lectures = _lectures()
     now = time.time()
@@ -389,8 +398,58 @@ def watchdog() -> str:
                 post.spawn(lid)
                 actions.append(f"re-ran post for lecture {x['idx']}")
     for a in actions:
-        _log(f"watchdog: {a}")
+        _log(f"supervisor: {a}")
     return "; ".join(actions) or "ok"
+
+
+@app.function(image=light_image, volumes={DATA: data_vol}, timeout=23 * 3600, max_containers=1)
+def supervise() -> str:
+    """Keep the run going, and END it when every lecture has notes.
+
+    This replaces the old 20-minute cron. A cron stays scheduled for as long as the app is
+    deployed and kept firing after a course was finished. This function has no schedule: it is
+    started by `ctl.py start`, loops here, and returns when the course is done, stuck or over
+    budget. When it returns, nothing is running and nothing will start again by itself.
+    """
+    began = state.get("supervise_began") or time.time()
+    state["supervise_began"] = began
+    handover_at = time.time() + SUPERVISOR_HANDOVER_S
+    state["running"] = True
+    while True:
+        if state.get("stop_all"):
+            return _finish("stopped by request")
+        if _all_done():
+            return _finish("every lecture has notes")
+        if (time.time() - began) / 3600 > MAX_RUN_HOURS:
+            return _finish(f"stopped: ran for {MAX_RUN_HOURS} hours (spend guard)", ok=False)
+        quiet = time.time() - max(
+            (state.get("heartbeat") or {}).get("t", 0), state.get("notes_hb", 0), began
+        )
+        if quiet > IDLE_STOP_S and not state.get("paused"):
+            return _finish("stopped: nothing has made progress for 6 hours", ok=False)
+        if time.time() > handover_at:
+            supervise.spawn()  # a fresh container takes over before this one times out
+            return "handed over"
+        try:
+            _check()
+        except Exception as e:  # noqa: BLE001 - one bad check must not end the run
+            _log(f"supervisor check failed: {type(e).__name__}: {e}")
+        time.sleep(SUPERVISE_EVERY_S)
+
+
+def _finish(reason: str, ok: bool = True) -> str:
+    """Clear every flag that could make any worker or check start again, and record a receipt."""
+    state["running"] = False
+    state["notes_stop"] = True
+    state["receipt"] = {
+        "finished_at": time.time(),
+        "ok": ok,
+        "reason": reason,
+        "hours": round((time.time() - (state.get("supervise_began") or time.time())) / 3600, 1),
+    }
+    state["supervise_began"] = None
+    _log(f"run over: {reason}. Nothing is running now.")
+    return reason
 
 
 # ---------------------------------------------------------------- notes in the cloud
